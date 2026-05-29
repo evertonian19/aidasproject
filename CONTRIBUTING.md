@@ -26,7 +26,7 @@ git pull origin develop
 Step 2. feature 브랜치 따기
 bashgit checkout -b feature/작업명
 Step 3. 작업 후 커밋
-bashgit add .
+bashgit add .  
 git commit -m "[Feat] 작업 내용 요약"
 
 ⚠️ 커밋 전에 .pem, .tfstate, .env 같은 민감 파일이 포함되지 않았는지 git status로 확인하세요.
