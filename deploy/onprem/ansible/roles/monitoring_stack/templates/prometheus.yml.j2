@@ -1,0 +1,18 @@
+# aidas/deploy/onprem/ansible/roles/monitoring_stack/templates/prometheus.yml.j2
+# 역할:
+# - Prometheus 설정 템플릿
+# - 호출 시점: monitoring_stack role의 template task에서 렌더링
+# - 수행 흐름:
+#   - mgmt, rocky01, rocky02의 node exporter를 scrape 대상으로 등록
+#   - 추후 AWS 또는 추가 노드가 생기면 scrape_configs 확장 가능
+
+global:
+  scrape_interval: {{ prometheus_scrape_interval }}
+
+scrape_configs:
+  - job_name: "node_exporter"
+    static_configs:
+      - targets:
+{% for host in groups['all'] %}
+          - "{{ hostvars[host].ansible_host }}:{{ node_exporter_port }}"
+{% endfor %}

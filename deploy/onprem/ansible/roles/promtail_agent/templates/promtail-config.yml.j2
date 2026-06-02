@@ -1,0 +1,27 @@
+# aidas/deploy/onprem/ansible/roles/promtail_agent/templates/promtail-config.yaml.j2
+# 역할:
+# - Promtail 설정 템플릿
+# - 호출 시점: promtail_agent role의 template task에서 렌더링
+# - 수행 흐름:
+#   - 각 노드의 /var/log/*.log를 Loki로 전송
+#   - host label, job label을 부여해 Grafana Loki에서 필터링 가능하도록 설정
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: {{ promtail_positions_file }}
+
+clients:
+  - url: {{ promtail_loki_url }}
+
+scrape_configs:
+  - job_name: {{ promtail_job_name }}
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: {{ promtail_job_name }}
+          host: {{ inventory_hostname }}
+          __path__: {{ promtail_log_path }}

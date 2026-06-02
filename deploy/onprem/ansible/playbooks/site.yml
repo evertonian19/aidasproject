@@ -1,0 +1,37 @@
+# aidas/deploy/onprem/ansible/playbooks/site.yml
+# 역할:
+# - 온프레미스 관제센터와 에이전트를 전체 구축하는 메인 playbook
+# - 호출 시점: 초기 1회 전체 구축 시 사용
+# - 수행 흐름:
+#   1) 모든 노드에 Docker 설치
+#   2) mgmt에 PLG stack 설치
+#   3) mgmt에 Monitoring stack 설치
+#   4) 모든 노드에 Promtail / Node Exporter 설치
+
+---
+- name: Install Docker on all on-prem nodes
+  hosts: all
+  become: true
+  roles:
+    - docker
+
+- name: Deploy PLG stack on mgmt
+  hosts: mgmt
+  become: true
+  roles:
+    - plg_stack
+
+- name: Deploy monitoring stack on mgmt
+  hosts: mgmt
+  become: true
+  roles:
+    - monitoring_stack
+
+- name: Deploy agents on all nodes
+  hosts: all
+  become: true
+  roles:
+    - role: promtail_agent
+      when: promtail_enabled | default(false)
+    - role: node_exporter_agent
+      when: node_exporter_enabled | default(false)

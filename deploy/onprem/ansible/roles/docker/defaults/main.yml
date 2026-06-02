@@ -1,0 +1,13 @@
+# aidas/deploy/onprem/ansible/roles/docker/defaults/main.yml
+# 역할:
+# - docker role에서 공통 사용하는 Docker 패키지 목록 정의
+# - 호출 시점: docker role 실행 시 자동 로드
+# - 수행 흐름: tasks/main.yml에서 패키지 설치 대상 참조
+
+---
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin

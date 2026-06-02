@@ -1,0 +1,11 @@
+# aidas/deploy/onprem/ansible/roles/node_exporter_agent/handlers/main.yml
+# 역할:
+# - Node Exporter 설정 변경 시 agent 재기동
+# - 호출 시점: compose 파일 변경 후 notify 발생 시 실행
+# - 수행 흐름: docker compose up -d 재실행
+
+---
+- name: restart node exporter agent
+  command: docker compose -f {{ node_exporter_base_dir }}/docker-compose-node-exporter.yml up -d
+  args:
+    chdir: "{{ node_exporter_base_dir }}"

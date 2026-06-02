@@ -1,0 +1,17 @@
+# aidas/deploy/onprem/ansible/roles/monitoring_stack/defaults/main.yml
+# 역할:
+# - Prometheus 배포용 기본 변수 정의
+# - 호출 시점: monitoring_stack role 실행 시 자동 로드
+# - 수행 흐름:
+#   - Prometheus 이미지, 포트, 데이터/설정 경로, scrape 대상 정의
+#   - node exporter scrape 대상을 hosts.yml의 노드들로 구성
+
+---
+monitoring_base_dir: /opt/monitoring
+monitoring_config_dir: /opt/monitoring/config
+
+prometheus_http_port: 9090
+prometheus_image: prom/prometheus:v2.53.0
+prometheus_data_dir: /var/lib/prometheus
+prometheus_scrape_interval: 15s
+node_exporter_port: 9100

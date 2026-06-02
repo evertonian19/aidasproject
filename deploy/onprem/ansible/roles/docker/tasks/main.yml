@@ -1,0 +1,47 @@
+---
+- name: Remove Podman related packages
+  dnf:
+    name:
+      - podman
+      - buildah
+      - runc
+      - podman-catatonit
+    state: absent
+
+- name: Disable container-tools module
+  command: dnf module disable -y container-tools
+  register: disable_container_tools
+  changed_when: "'Nothing to do.' not in disable_container_tools.stdout"
+  failed_when: false
+
+- name: Install dnf plugin tools
+  dnf:
+    name: dnf-plugins-core
+    state: present
+
+- name: Add Docker CE repository
+  command: dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  args:
+    creates: /etc/yum.repos.d/docker-ce.repo
+
+- name: Install Docker packages
+  dnf:
+    name: "{{ docker_packages }}"
+    state: present
+
+- name: Enable and start Docker
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Ensure docker group exists
+  group:
+    name: docker
+    state: present
+
+- name: Add remote user to docker group
+  user:
+    name: user1
+    groups: docker
+    append: true

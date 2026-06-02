@@ -1,0 +1,51 @@
+# aidas/deploy/onprem/ansible/roles/plg_stack/templates/docker-compose-plg.yml.j2
+# 역할:
+# - mgmt 노드에서 Loki와 Grafana를 구동하는 Compose 템플릿
+# - 호출 시점: plg_stack role 실행 중 template task에서 렌더링
+# - 수행 흐름:
+#   - Loki는 로그 저장/조회 API 제공
+#   - Grafana는 provisioning 경로에 마운트된 datasources.yml을 읽어
+#     Loki / Prometheus datasource를 자동 등록
+# - 주의:
+#   - Prometheus 컨테이너도 동일한 observability 네트워크에 있어야
+#     Grafana가 http://prometheus:9090 으로 접근 가능
+
+version: "3.9"
+
+services:
+  loki:
+    image: {{ loki_image }}
+    container_name: loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yaml
+    ports:
+      - "{{ loki_http_port }}:{{ loki_http_port }}"
+    volumes:
+      - {{ plg_config_dir }}/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - {{ loki_root_dir }}:/var/loki
+    networks:
+      - observability
+
+  grafana:
+    image: {{ grafana_image }}
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "{{ grafana_http_port }}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: "{{ grafana_admin_user }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - {{ grafana_data_dir }}:/var/lib/grafana
+      - {{ grafana_provisioning_dir }}/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    depends_on:
+      - loki
+    networks:
+      - observability
+
+networks:
+  observability:
+    name: observability
+    driver: bridge

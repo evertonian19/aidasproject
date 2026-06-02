@@ -1,0 +1,12 @@
+# aidas/deploy/onprem/ansible/playbooks/install_docker.yml
+# 역할:
+# - 모든 온프레미스 노드에 Docker Engine / Compose plugin 설치
+# - 호출 시점: 런타임 환경만 먼저 준비할 때 사용
+# - 수행 흐름: all 대상 -> docker role 실행
+
+---
+- name: Install Docker on all nodes
+  hosts: all
+  become: true
+  roles:
+    - docker

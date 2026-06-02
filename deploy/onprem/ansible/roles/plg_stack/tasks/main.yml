@@ -1,0 +1,65 @@
+# aidas/deploy/onprem/ansible/roles/plg_stack/tasks/main.yml
+# 역할:
+# - mgmt 노드에 Loki / Grafana 및 Grafana datasource provisioning 파일을 배포
+# - 호출 시점: deploy_plg.yml 또는 site.yml 실행 시
+# - 수행 흐름:
+#   1) 디렉터리 생성
+#   2) Loki config 생성
+#   3) Grafana datasource provisioning 파일 생성
+#   4) Compose 파일 생성
+#   5) PLG stack 실행
+#   6) Loki readiness 확인
+
+---
+- name: Create PLG directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ plg_base_dir }}"
+    - "{{ plg_config_dir }}"
+    - "{{ grafana_provisioning_dir }}"
+    - "{{ loki_root_dir }}"
+    - "{{ loki_data_dir }}"
+    - "{{ loki_rules_dir }}"
+    - "{{ loki_compactor_dir }}"
+    - "{{ grafana_data_dir }}"
+
+- name: Deploy Loki config
+  template:
+    src: loki-config.yaml.j2
+    dest: "{{ plg_config_dir }}/loki-config.yaml"
+    mode: "0644"
+  notify: restart plg stack
+
+- name: Deploy Grafana datasource provisioning
+  template:
+    src: grafana-datasources.yml.j2
+    dest: "{{ grafana_provisioning_dir }}/datasources.yml"
+    mode: "0644"
+  notify: restart plg stack
+
+- name: Deploy PLG Docker Compose
+  template:
+    src: docker-compose-plg.yml.j2
+    dest: "{{ plg_base_dir }}/docker-compose-plg.yml"
+    mode: "0644"
+  notify: restart plg stack
+
+- name: Start PLG stack
+  command: docker compose -f {{ plg_base_dir }}/docker-compose-plg.yml up -d
+  args:
+    chdir: "{{ plg_base_dir }}"
+
+- name: Check Loki readiness
+  uri:
+    url: "http://127.0.0.1:{{ loki_http_port }}/ready"
+    method: GET
+    status_code: 200
+  register: loki_ready
+  retries: 10
+  delay: 5
+  until: loki_ready.status == 200

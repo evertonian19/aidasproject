@@ -1,0 +1,36 @@
+# aidas/deploy/onprem/ansible/roles/plg_stack/templates/grafana-datasources.yml.j2
+# 역할:
+# - Grafana 컨테이너 시작 시 Loki / Prometheus datasource를 자동 등록하는 provisioning 파일
+# - 호출 시점: plg_stack role 실행 중 template task에서 렌더링됨
+# - 수행 흐름:
+#   1) Ansible이 이 파일을 호스트에 생성
+#   2) Docker Compose가 이 파일을 Grafana 컨테이너의 provisioning 경로로 마운트
+#   3) Grafana 시작 시 datasources를 자동 생성
+# - 주의:
+#   - url은 Docker 네트워크 내부 DNS 이름(loki, prometheus)을 사용
+#   - Grafana, Loki, Prometheus가 같은 Docker network에 있어야 함
+
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    uid: loki
+    url: http://loki:{{ loki_http_port }}
+    isDefault: false
+    editable: true
+    jsonData:
+      maxLines: 1000
+      timeout: 60
+
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    uid: prometheus
+    url: http://prometheus:{{ prometheus_http_port }}
+    isDefault: true
+    editable: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: "{{ prometheus_scrape_interval }}"

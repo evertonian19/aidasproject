@@ -1,0 +1,11 @@
+# aidas/deploy/onprem/ansible/roles/node_exporter_agent/defaults/main.yml
+# 역할:
+# - Node Exporter agent 기본 변수 정의
+# - 호출 시점: node_exporter_agent role 실행 시 자동 로드
+# - 수행 흐름:
+#   - 이미지, 배포 경로, 수집 포트 정의
+
+---
+node_exporter_base_dir: /opt/node_exporter
+node_exporter_image: prom/node-exporter:v1.8.1
+node_exporter_port: 9100

@@ -1,0 +1,30 @@
+# aidas/deploy/onprem/ansible/roles/plg_stack/defaults/main.yml
+# 역할:
+# - PLG stack(Loki, Grafana) 배포 기본 변수 정의
+# - 호출 시점: plg_stack role 실행 시 자동 로드
+# - 수행 흐름:
+#   - Loki / Grafana 이미지, 포트, 저장 경로, provisioning 경로 등을 task와 template에서 참조
+
+---
+plg_base_dir: /opt/plg
+plg_config_dir: /opt/plg/config
+grafana_provisioning_dir: /opt/plg/grafana/provisioning/datasources
+
+loki_http_port: 3100
+grafana_http_port: 3000
+prometheus_http_port: 9090
+prometheus_scrape_interval: 15s
+
+loki_image: grafana/loki:3.0.0
+grafana_image: grafana/grafana:11.0.0
+
+loki_root_dir: /var/loki
+loki_data_dir: /var/loki/data
+loki_rules_dir: /var/loki/rules
+loki_compactor_dir: /var/loki/compactor
+
+grafana_data_dir: /var/lib/grafana
+loki_retention_period: 168h
+
+grafana_admin_user: admin
+grafana_admin_password: admin123!

@@ -1,0 +1,21 @@
+# aidas/deploy/onprem/ansible/roles/node_exporter_agent/templates/docker-compose-node-exporter.yml.j2
+# 역할:
+# - 각 노드에서 Node Exporter를 구동하는 Compose 템플릿
+# - 호출 시점: node_exporter_agent role의 template task에서 렌더링
+# - 수행 흐름:
+#   - 호스트 루트 파일시스템, proc, sys를 읽어 시스템 메트릭을 노출
+#   - Prometheus가 {{ node_exporter_port }} 포트로 scrape
+
+version: "3.9"
+
+services:
+  node-exporter:
+    image: {{ node_exporter_image }}
+    container_name: node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro,rslave

@@ -1,0 +1,11 @@
+# aidas/deploy/onprem/ansible/roles/monitoring_stack/handlers/main.yml
+# 역할:
+# - Prometheus 설정 변경 시 monitoring stack 재기동
+# - 호출 시점: prometheus.yml 또는 compose 파일 변경 후 notify 발생 시 실행
+# - 수행 흐름: docker compose up -d 재실행
+
+---
+- name: restart monitoring stack
+  command: docker compose -f {{ monitoring_base_dir }}/docker-compose-monitoring.yml up -d
+  args:
+    chdir: "{{ monitoring_base_dir }}"

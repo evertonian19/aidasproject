@@ -1,0 +1,12 @@
+# aidas/deploy/onprem/ansible/playbooks/deploy_monitoring.yml
+# 역할:
+# - mgmt 노드에 monitoring stack(Prometheus) 설치
+# - 호출 시점: 메트릭 관제 스택만 배포 또는 수정 반영 시 사용
+# - 수행 흐름: mgmt 대상 -> monitoring_stack role 실행
+
+---
+- name: Deploy monitoring stack on mgmt
+  hosts: mgmt
+  become: true
+  roles:
+    - monitoring_stack

@@ -1,0 +1,29 @@
+# aidas/deploy/onprem/ansible/roles/monitoring_stack/templates/docker-compose-monitoring.yml.j2
+# 역할:
+# - mgmt 노드에서 Prometheus를 구동하는 Compose 템플릿
+# - 호출 시점: monitoring_stack role의 template task에서 렌더링
+# - 수행 흐름:
+#   - Prometheus를 observability 네트워크에 연결
+#   - Grafana가 내부 DNS 이름 prometheus로 접근 가능하게 함
+
+version: "3.9"
+
+services:
+  prometheus:
+    image: {{ prometheus_image }}
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "{{ prometheus_http_port }}:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - {{ monitoring_config_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - {{ prometheus_data_dir }}:/prometheus
+    networks:
+      - observability
+
+networks:
+  observability:
+    external: true

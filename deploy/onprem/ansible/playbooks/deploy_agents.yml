@@ -1,0 +1,15 @@
+# aidas/deploy/onprem/ansible/playbooks/deploy_agents.yml
+# 역할:
+# - 모든 노드에 promtail / node exporter 에이전트를 배포
+# - 호출 시점: 로그/메트릭 수집 대상 노드 확대 또는 agent 설정 변경 시 사용
+# - 수행 흐름: all 대상 -> promtail_agent 및 node_exporter_agent role 실행
+
+---
+- name: Deploy log and metric agents on all nodes
+  hosts: all
+  become: true
+  roles:
+    - role: promtail_agent
+      when: promtail_enabled | default(false)
+    - role: node_exporter_agent
+      when: node_exporter_enabled | default(false)

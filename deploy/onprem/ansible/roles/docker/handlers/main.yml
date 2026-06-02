@@ -1,0 +1,11 @@
+# aidas/deploy/onprem/ansible/roles/docker/handlers/main.yml
+# 역할:
+# - Docker 서비스 재시작 handler
+# - 호출 시점: docker 관련 설정 변경 시 notify로 실행 가능
+# - 수행 흐름: systemd를 통해 docker 재시작
+
+---
+- name: restart docker
+  systemd:
+    name: docker
+    state: restarted

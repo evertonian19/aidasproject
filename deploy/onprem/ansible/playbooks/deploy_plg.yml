@@ -1,0 +1,12 @@
+# aidas/deploy/onprem/ansible/playbooks/deploy_plg.yml
+# 역할:
+# - mgmt 노드에 PLG stack(Loki, Grafana) 설치
+# - 호출 시점: 로그 관제 스택만 배포 또는 수정 반영 시 사용
+# - 수행 흐름: mgmt 대상 -> plg_stack role 실행
+
+---
+- name: Deploy PLG stack on mgmt
+  hosts: mgmt
+  become: true
+  roles:
+    - plg_stack

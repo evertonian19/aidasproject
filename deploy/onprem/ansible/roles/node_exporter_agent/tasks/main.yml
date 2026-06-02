@@ -1,0 +1,29 @@
+# aidas/deploy/onprem/ansible/roles/node_exporter_agent/tasks/main.yml
+# 역할:
+# - 각 노드에 Node Exporter agent 설치 및 실행
+# - 호출 시점: deploy_agents.yml 또는 site.yml에서 호출
+# - 수행 흐름:
+#   1) 디렉터리 생성
+#   2) compose 파일 생성
+#   3) node exporter 기동
+
+---
+- name: Create Node Exporter directory
+  file:
+    path: "{{ node_exporter_base_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy Node Exporter Docker Compose
+  template:
+    src: docker-compose-node-exporter.yml.j2
+    dest: "{{ node_exporter_base_dir }}/docker-compose-node-exporter.yml"
+    mode: "0644"
+  notify: restart node exporter agent
+
+- name: Start Node Exporter agent
+  command: docker compose -f {{ node_exporter_base_dir }}/docker-compose-node-exporter.yml up -d
+  args:
+    chdir: "{{ node_exporter_base_dir }}"

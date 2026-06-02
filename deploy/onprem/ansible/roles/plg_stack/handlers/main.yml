@@ -1,0 +1,11 @@
+# aidas/deploy/onprem/ansible/roles/plg_stack/handlers/main.yml
+# 역할:
+# - Loki 설정 또는 Compose 파일 변경 시 PLG stack 재기동
+# - 호출 시점: 템플릿 변경 후 notify 발생 시 실행
+# - 수행 흐름: docker compose up -d 재실행
+
+---
+- name: restart plg stack
+  command: docker compose -f {{ plg_base_dir }}/docker-compose-plg.yml up -d
+  args:
+    chdir: "{{ plg_base_dir }}"

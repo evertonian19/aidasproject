@@ -1,0 +1,41 @@
+# aidas/deploy/onprem/ansible/roles/monitoring_stack/tasks/main.yml
+# 역할:
+# - mgmt 노드에 Prometheus 설치
+# - 호출 시점: deploy_monitoring.yml 또는 site.yml에서 호출
+# - 수행 흐름:
+#   1) 디렉터리 생성
+#   2) prometheus.yml 템플릿 생성
+#   3) compose 파일 생성
+#   4) Prometheus 기동
+
+---
+- name: Create monitoring directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ monitoring_base_dir }}"
+    - "{{ monitoring_config_dir }}"
+    - "{{ prometheus_data_dir }}"
+
+- name: Deploy Prometheus config
+  template:
+    src: prometheus.yml.j2
+    dest: "{{ monitoring_config_dir }}/prometheus.yml"
+    mode: "0644"
+  notify: restart monitoring stack
+
+- name: Deploy monitoring Docker Compose
+  template:
+    src: docker-compose-monitoring.yml.j2
+    dest: "{{ monitoring_base_dir }}/docker-compose-monitoring.yml"
+    mode: "0644"
+  notify: restart monitoring stack
+
+- name: Start monitoring stack
+  command: docker compose -f {{ monitoring_base_dir }}/docker-compose-monitoring.yml up -d
+  args:
+    chdir: "{{ monitoring_base_dir }}"

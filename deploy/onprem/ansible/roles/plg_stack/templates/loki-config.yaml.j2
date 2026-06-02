@@ -1,0 +1,58 @@
+# aidas/deploy/onprem/ansible/roles/plg_stack/templates/loki-config.yaml.j2
+# 역할:
+# - Loki 설정 템플릿
+# - 호출 시점: plg_stack role 실행 중 template task에서 렌더링
+# - 수행 흐름:
+#   - filesystem 저장소 사용
+#   - /var/loki/data 저장
+#   - compactor 기반 7일 retention 적용
+#   - 단일 노드 Loki 환경 구성
+
+auth_enabled: false
+
+server:
+  http_listen_port: {{ loki_http_port }}
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /var/loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  filesystem:
+    directory: {{ loki_data_dir }}
+
+limits_config:
+  retention_period: {{ loki_retention_period }}
+  allow_structured_metadata: false
+
+compactor:
+  working_directory: {{ loki_compactor_dir }}
+  compaction_interval: 10m
+  retention_enabled: true
+  delete_request_store: filesystem
+
+ruler:
+  storage:
+    type: local
+    local:
+      directory: {{ loki_rules_dir }}
+  rule_path: /var/loki/rules-temp
+  alertmanager_url: http://localhost:9093
+  enable_api: true
+
+analytics:
+  reporting_enabled: false
