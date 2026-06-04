@@ -1,0 +1,166 @@
+---
+- name: 온프레미스 서버 설치 항목 제거
+  hosts: localhost ### 테스트는 localhost로 진행후에 변경 예정입니다
+  become: true
+
+  tasks:
+
+    # -------------------------------------------------------------------------
+    # 모델 제거 (Ollama 바이너리 직접 호출, 없으면 무시)
+    # -------------------------------------------------------------------------
+    - name: Ollama 바이너리 존재 여부 확인
+      stat:
+        path: /usr/bin/ollama
+      register: ollama_bin
+
+    - name: 설치된 모델 목록 조회
+      command: /usr/bin/ollama list
+      register: ollama_model_list
+      changed_when: false
+      when: ollama_bin.stat.exists
+
+    - name: Llama3 모델 제거
+      command: /usr/bin/ollama rm llama3
+      when:
+        - ollama_bin.stat.exists
+        - "'llama3' in ollama_model_list.stdout"
+      changed_when: true
+
+    - name: Qwen2.5-Coder:7b 모델 제거
+      command: /usr/bin/ollama rm qwen2.5-coder:7b
+      when:
+        - ollama_bin.stat.exists
+        - "'qwen2.5-coder' in ollama_model_list.stdout"
+      changed_when: true
+
+    - name: aidas-sre 커스텀 모델 제거
+      command: /usr/bin/ollama rm aidas-sre
+      when:
+        - ollama_bin.stat.exists
+        - "'aidas-sre' in ollama_model_list.stdout"
+      changed_when: true
+
+    - name: aidas-sre-qwen 커스텀 모델 제거
+      command: /usr/bin/ollama rm aidas-sre-qwen
+      when:
+        - ollama_bin.stat.exists
+        - "'aidas-sre-qwen' in ollama_model_list.stdout"
+      changed_when: true
+
+    - name: Phi3.5 모델 제거
+      command: /usr/bin/ollama rm phi3.5
+      when:
+        - ollama_bin.stat.exists
+        - "'phi3.5' in ollama_model_list.stdout"
+      changed_when: true
+
+    - name: aidas-sre-phi 커스텀 모델 제거
+      command: /usr/bin/ollama rm aidas-sre-phi
+      when:
+        - ollama_bin.stat.exists
+        - "'aidas-sre-phi' in ollama_model_list.stdout"
+      changed_when: true
+
+    - name: Modelfile 디렉토리 제거
+      file:
+        path: /etc/ollama
+        state: absent
+
+    # -------------------------------------------------------------------------
+    # Ollama 제거
+    # -------------------------------------------------------------------------
+    - name: Ollama 서비스 중지 및 비활성화
+      systemd:
+        name: ollama
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Ollama 바이너리 제거
+      file:
+        path: /usr/bin/ollama
+        state: absent
+
+    - name: Ollama 라이브러리 제거 (~3.5 GB)
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /usr/lib/ollama
+      # /usr/share/ollama 는 재설치 시 권한 오류 방지를 위해 유지
+
+    # -------------------------------------------------------------------------
+    # Promtail 제거
+    # -------------------------------------------------------------------------
+    - name: Promtail 서비스 중지 및 비활성화
+      systemd:
+        name: promtail
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Promtail 바이너리 제거
+      file:
+        path: /usr/local/bin/promtail
+        state: absent
+
+    - name: Promtail 서비스 파일 제거
+      file:
+        path: /etc/systemd/system/promtail.service
+        state: absent
+
+    - name: Promtail 설정 및 데이터 디렉토리 제거
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/promtail
+        - /var/lib/promtail
+        - /var/log/aidas
+
+    # -------------------------------------------------------------------------
+    # Docker 제거
+    # -------------------------------------------------------------------------
+    - name: Docker 서비스 중지 및 비활성화
+      systemd:
+        name: docker
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Docker CE 패키지 제거
+      dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: absent
+
+    - name: Docker 저장소 제거
+      file:
+        path: /etc/yum.repos.d/docker-ce.repo
+        state: absent
+
+    # -------------------------------------------------------------------------
+    # 임시 파일 정리
+    # -------------------------------------------------------------------------
+    - name: Promtail 임시 바이너리 제거
+      file:
+        path: /tmp/promtail-linux-amd64
+        state: absent
+
+    - name: Promtail 임시 zip 제거
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_fileglob:
+        - /tmp/promtail-*.zip
+
+    # -------------------------------------------------------------------------
+    # systemd 데몬 리로드
+    # -------------------------------------------------------------------------
+    - name: systemd 데몬 리로드
+      systemd:
+        daemon_reload: true

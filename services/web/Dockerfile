@@ -1,13 +1,17 @@
 FROM python:3.10-slim
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
 WORKDIR /app
 
-# 의존성 설치
+RUN mkdir -p /var/log/aidas
+
 COPY services/web/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 코드 복사
 COPY services/web/ .
 
-# uvicorn 대신 python -m uvicorn 사용 (안정적임)
-ENV PYTHONPATH=/app/services/web
+EXPOSE 8000
+
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

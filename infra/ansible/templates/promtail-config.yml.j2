@@ -1,0 +1,91 @@
+# =============================================================================
+# Promtail 설정 파일 (Ansible 템플릿)
+# 그룹에 따라 수집 대상 경로와 레이블이 자동 분기됨
+#   - onpremise  : 온프레미스 시스템 로그 + Docker 컨테이너 로그
+#   - ec2_workers: FastAPI 애플리케이션 로그 (/var/log/aidas/)
+#
+# 필터링 전략:
+#   regex 스테이지로 ERROR|FATAL 라인만 log_level 레이블 추출 →
+#   match 스테이지에서 log_level 없는 라인(INFO/DEBUG 등) 드롭
+# =============================================================================
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+  - url: http://{{ loki_host }}:3100/loki/api/v1/push
+    batchwait: 1s
+    batchsize: 1048576
+
+scrape_configs:
+
+{% if 'onpremise' in group_names %}
+  # -------------------------------------------------------------------------
+  # 온프레미스 — FastAPI 애플리케이션 로그 수집
+  # -------------------------------------------------------------------------
+  - job_name: onprem-fastapi
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: fastapi
+          host: "{{ ansible_hostname }}"
+          env: onpremise
+          __path__: /var/log/aidas/*.log
+    pipeline_stages:
+      - regex:
+          expression: '(?P<log_level>ERROR|FATAL)'
+      - labels:
+          log_level:
+      - match:
+          selector: '{log_level!~"ERROR|FATAL"}'
+          action: drop
+
+  # -------------------------------------------------------------------------
+  # 온프레미스 — Docker 컨테이너 로그 수집 (Loki, Grafana, Ollama 등)
+  # -------------------------------------------------------------------------
+  - job_name: onprem-docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 10s
+    relabel_configs:
+      - source_labels: [__meta_docker_container_name]
+        target_label: container
+      - source_labels: [__meta_docker_container_log_stream]
+        target_label: stream
+    pipeline_stages:
+      - regex:
+          expression: '(?P<log_level>ERROR|FATAL)'
+      - labels:
+          log_level:
+      - match:
+          selector: '{log_level!~"ERROR|FATAL"}'
+          action: drop
+{% endif %}
+
+{% if 'ec2_workers' in group_names %}
+  # -------------------------------------------------------------------------
+  # EC2 워커 — FastAPI 애플리케이션 로그 수집
+  # 4대 장애 시나리오 로그: DB Timeout / OOM / Disk Full / HTTP 500
+  # -------------------------------------------------------------------------
+  - job_name: ec2-fastapi
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: fastapi
+          host: "{{ ansible_hostname }}"
+          env: aws-ec2
+          __path__: /var/log/aidas/*.log
+    pipeline_stages:
+      - regex:
+          expression: '(?P<log_level>ERROR|FATAL)'
+      - labels:
+          log_level:
+      - match:
+          selector: '{log_level!~"ERROR|FATAL"}'
+          action: drop
+{% endif %}
