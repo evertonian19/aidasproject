@@ -1,3 +1,5 @@
 # [의존성 목록] Lambda 환경에서 Ollama 및 Slack API 호출을 위해 필요한 최소한의 라이브러리 명세서 파일입니다.
-requests==2.31.0
+httpx==0.27.0
+apscheduler==3.10.4
 boto3==1.34.0
+python-dotenv==1.0.1
