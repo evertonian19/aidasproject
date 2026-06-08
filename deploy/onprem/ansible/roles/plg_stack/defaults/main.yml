@@ -27,7 +27,8 @@ grafana_data_dir: /var/lib/grafana
 loki_retention_period: 168h
 
 grafana_admin_user: admin
-grafana_admin_password: admin123!
+grafana_admin_password: "{{ lookup('env', 'GRAFANA_ADMIN_PASSWORD') }}"
+
 
 # 대시보드 프로비저닝 경로
 grafana_dashboards_provisioning_dir: /opt/plg/grafana/provisioning/dashboards
