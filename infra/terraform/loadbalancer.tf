@@ -17,9 +17,7 @@ data "aws_acm_certificate" "issued_cert" {
 }
 
 
-
-
-# 2. ALB 본체 (Load Balancer L7)
+# 1. ALB 본체 (Load Balancer L7)
 resource "aws_lb" "web_alb" {
     name = "${var.project_name}-alb"
     internal = false # 외부 노출용
@@ -35,8 +33,9 @@ resource "aws_lb" "web_alb" {
 
 
 # 3. ALB 가 받은 요청을 최종적으로 전달할 대상그룹(ASG이 자동 등록)
-resource "aws_lb_target_group" "web_tg" {
-    name = "${var.project_name}-tg"
+# ─── Blue Target Group ───────────────────────────────────────────
+resource "aws_lb_target_group" "blue_tg" {
+    name = "${var.project_name}-blue-tg"
     # 대상 ec2 에서 돌아가는 web 서버의 port 번호(변경가능)
     port = 80
     protocol = "HTTP"
@@ -57,6 +56,27 @@ resource "aws_lb_target_group" "web_tg" {
         matcher             = "200"  # 200 OK만 정상으로 판단
     }    
 }
+# ─── Green Target Group ───────────────────────────────────────────
+resource "aws_lb_target_group" "green_tg" {
+  name     = "${var.project_name}-green-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+
+  health_check {
+    enabled             = true
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 5
+    interval            = 30
+    matcher             = "200"
+  }
+
+  tags = { Name = "${var.project_name}-green-tg" }
+}
 
 # ALB 80 port -> 443 port 로 리다이렉트
 resource "aws_lb_listener" "http" {
@@ -75,7 +95,7 @@ resource "aws_lb_listener" "http" {
 }
 
 
-
+# ─── HTTPS Listener 수정 (Blue가 기본, Green은 가중치 0) ──────────
 # ALB 443 리스너
 resource "aws_lb_listener" "https" {
   # 이 리스너가 설치될 로드밸런서(ALB)의 고유 주소(ARN)를 지정
@@ -93,8 +113,17 @@ resource "aws_lb_listener" "https" {
   # 기본 동작: 443번 포트로 요청이 들어왔을 때 무엇을 할 것인가?
   default_action {
     type             = "forward"
-    # "443번으로 들어온 손님은 web_tg에 담긴 EC2들에게 보내라!"는 명령
-    target_group_arn = aws_lb_target_group.web_tg.arn
+    # "443번으로 들어온 손님은 blue_tg에 담긴 EC2들에게 보내라!"는 명령
+    forward {
+      target_group {
+        arn    = aws_lb_target_group.blue_tg.arn
+        weight = 100  # Blue가 100% 트래픽
+      }
+      target_group {
+        arn    = aws_lb_target_group.green_tg.arn
+        weight = 0    # Green은 대기 중
+      }
+    }
   }
 }
 

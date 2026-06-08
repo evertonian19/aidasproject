@@ -31,46 +31,87 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
   tags              = { Name = "${var.project_name}-lambda-logs" }
 }
 
-# ─── 3. ASG CPU 알람 ──────────────────────────────────────────────
+# ─── 3. ASG CPU 알람 (Blue)──────────────────────────────────────────────
 # CPU 높을 때 (Scale Out 트리거 + 알림)
-resource "aws_cloudwatch_metric_alarm" "cpu_high" {
-  alarm_name          = "${var.project_name}-cpu-high"
+resource "aws_cloudwatch_metric_alarm" "cpu_high_blue" {
+  alarm_name          = "${var.project_name}-cpu-high-blue"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
   period              = 60
   statistic           = "Average"
-  threshold           = 80  # 80% 초과 시 위험 알림 (ASG 스케일링은 50%에서 별도 동작)
-  alarm_description   = "ASG CPU 사용률 80% 초과"
+  threshold           = 80
+  alarm_description   = "Blue ASG CPU 80% 초과"
   alarm_actions       = [aws_sns_topic.alarm_topic.arn]
   ok_actions          = [aws_sns_topic.alarm_topic.arn]
 
   dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.asg.name
+    AutoScalingGroupName = aws_autoscaling_group.asg_blue.name
   }
 
-  tags = { Name = "${var.project_name}-cpu-high" }
+  tags = { Name = "${var.project_name}-cpu-high-blue" }
+}
+# ─── 4. ASG CPU 알람 (Green)─────────────────────────────────────────────
+resource "aws_cloudwatch_metric_alarm" "cpu_high_green" {
+  alarm_name          = "${var.project_name}-cpu-high-green"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "Green ASG CPU 80% 초과"
+  alarm_actions       = [aws_sns_topic.alarm_topic.arn]
+  ok_actions          = [aws_sns_topic.alarm_topic.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.asg_green.name
+  }
+
+  tags = { Name = "${var.project_name}-cpu-high-green" }
 }
 
 # CPU 낮을 때 (Scale In 모니터링)
-resource "aws_cloudwatch_metric_alarm" "cpu_low" {
-  alarm_name          = "${var.project_name}-cpu-low"
+# Blue CPU Low
+resource "aws_cloudwatch_metric_alarm" "cpu_low_blue" {
+  alarm_name          = "${var.project_name}-cpu-low-blue"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 3
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
   period              = 60
   statistic           = "Average"
-  threshold           = 10  # 10% 미만 시 알림
-  alarm_description   = "ASG CPU 사용률 10% 미만"
+  threshold           = 10
+  alarm_description   = "Blue ASG CPU 사용률 10% 미만"
   alarm_actions       = [aws_sns_topic.alarm_topic.arn]
 
   dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.asg.name
+    AutoScalingGroupName = aws_autoscaling_group.asg_blue.name
   }
 
-  tags = { Name = "${var.project_name}-cpu-low" }
+  tags = { Name = "${var.project_name}-cpu-low-blue" }
+}
+
+# Green CPU Low
+resource "aws_cloudwatch_metric_alarm" "cpu_low_green" {
+  alarm_name          = "${var.project_name}-cpu-low-green"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 10
+  alarm_description   = "Green ASG CPU 사용률 10% 미만"
+  alarm_actions       = [aws_sns_topic.alarm_topic.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.asg_green.name
+  }
+
+  tags = { Name = "${var.project_name}-cpu-low-green" }
 }
 
 # ─── 4. ALB 알람 ──────────────────────────────────────────────────
@@ -95,29 +136,48 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   tags = { Name = "${var.project_name}-alb-5xx" }
 }
 
-# ALB Unhealthy Host 알람
-resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_host" {
-  alarm_name          = "${var.project_name}-unhealthy-host"
+# ─── Unhealthy Host 알람 (Blue/Green 각각) ────────────────────────
+resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_blue" {
+  alarm_name          = "${var.project_name}-unhealthy-blue"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "UnHealthyHostCount"
   namespace           = "AWS/ApplicationELB"
   period              = 60
   statistic           = "Maximum"
-  threshold           = 0  # Unhealthy 호스트 1개라도 생기면 알림
+  threshold           = 0
   treat_missing_data  = "notBreaching"
-  alarm_description   = "ALB Unhealthy 호스트 발생"
   alarm_actions       = [aws_sns_topic.alarm_topic.arn]
   ok_actions          = [aws_sns_topic.alarm_topic.arn]
 
   dimensions = {
     LoadBalancer = aws_lb.web_alb.arn_suffix
-    TargetGroup  = aws_lb_target_group.web_tg.arn_suffix
+    TargetGroup  = aws_lb_target_group.blue_tg.arn_suffix
   }
 
-  tags = { Name = "${var.project_name}-unhealthy-host" }
+  tags = { Name = "${var.project_name}-unhealthy-blue" }
 }
 
+resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_green" {
+  alarm_name          = "${var.project_name}-unhealthy-green"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "UnHealthyHostCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Maximum"
+  threshold           = 0
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alarm_topic.arn]
+  ok_actions          = [aws_sns_topic.alarm_topic.arn]
+
+  dimensions = {
+    LoadBalancer = aws_lb.web_alb.arn_suffix
+    TargetGroup  = aws_lb_target_group.green_tg.arn_suffix
+  }
+
+  tags = { Name = "${var.project_name}-unhealthy-green" }
+}
 # ─── 5. CloudWatch Dashboard ──────────────────────────────────────
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${var.project_name}-dashboard"
@@ -130,7 +190,8 @@ resource "aws_cloudwatch_dashboard" "main" {
           title  = "ASG CPU 사용률"
           period = 60
           metrics = [
-            ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", aws_autoscaling_group.asg.name]
+            ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", aws_autoscaling_group.asg_blue.name],
+            ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", aws_autoscaling_group.asg_green.name]
           ]
           view  = "timeSeries"
           stat  = "Average"
@@ -158,8 +219,10 @@ resource "aws_cloudwatch_dashboard" "main" {
           title  = "ALB Healthy / Unhealthy 호스트 수"
           period = 60
           metrics = [
-            ["AWS/ApplicationELB", "HealthyHostCount",   "LoadBalancer", aws_lb.web_alb.arn_suffix, "TargetGroup", aws_lb_target_group.web_tg.arn_suffix],
-            ["AWS/ApplicationELB", "UnHealthyHostCount", "LoadBalancer", aws_lb.web_alb.arn_suffix, "TargetGroup", aws_lb_target_group.web_tg.arn_suffix]
+            ["AWS/ApplicationELB", "HealthyHostCount",   "LoadBalancer", aws_lb.web_alb.arn_suffix, "TargetGroup", aws_lb_target_group.blue_tg.arn_suffix],
+            ["AWS/ApplicationELB", "UnHealthyHostCount", "LoadBalancer", aws_lb.web_alb.arn_suffix, "TargetGroup", aws_lb_target_group.blue_tg.arn_suffix],
+            ["AWS/ApplicationELB", "HealthyHostCount",   "LoadBalancer", aws_lb.web_alb.arn_suffix, "TargetGroup", aws_lb_target_group.green_tg.arn_suffix],
+            ["AWS/ApplicationELB", "UnHealthyHostCount", "LoadBalancer", aws_lb.web_alb.arn_suffix, "TargetGroup", aws_lb_target_group.green_tg.arn_suffix]
           ]
           view = "timeSeries"
           stat = "Maximum"

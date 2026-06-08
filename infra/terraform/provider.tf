@@ -43,15 +43,18 @@ provider "aws" {
   alias  = "us_east_1"
   region = "us-east-1"
   profile = "aidasProject2" # AWS userID
+
 }
 
-provider "tailscale" {
-  api_key = var.tailscale_api_key
-  tailnet = var.tailnet_name
-}
+# provider "tailscale" {
+#   api_key = var.tailscale_api_key
+#   tailnet = var.tailnet_name
+# }
 
-# GitHub provider 설정
-provider "github" {
-  token = var.github_token
-  owner = var.github_owner  
-}
+# # GitHub provider 설정
+# provider "github" {
+#   token = var.github_token
+#   owner = var.github_owner  
+
+# }
+

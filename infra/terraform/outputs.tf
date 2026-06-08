@@ -31,15 +31,17 @@ output "instance_private_ip" {
 }
 
 # ─── ASG ──────────────────────────────────────────────────────────
-output "asg_instance_ips" {
-  description = "ASG 인스턴스 Private IP 목록"
-  value       = data.aws_instances.asg_nodes.private_ips
+#  교체
+output "asg_blue_name" {
+  description = "Blue ASG 이름"
+  value       = aws_autoscaling_group.asg_blue.name
 }
 
-output "asg_name" {
-  description = "Auto Scaling Group 이름"
-  value       = aws_autoscaling_group.asg.name
+output "asg_green_name" {
+  description = "Green ASG 이름"
+  value       = aws_autoscaling_group.asg_green.name
 }
+
 
 # ─── ALB ──────────────────────────────────────────────────────────
 output "alb_dns_name" {
