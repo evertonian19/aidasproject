@@ -126,6 +126,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type = "metric"
         properties = {
+          region = "ap-northeast-2"    # 추가
           title  = "ASG CPU 사용률"
           period = 60
           metrics = [
@@ -138,6 +139,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type = "metric"
         properties = {
+          region = "ap-northeast-2"    # 추가
           title  = "ALB 요청 수 & 에러율"
           period = 60
           metrics = [
@@ -152,6 +154,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type = "metric"
         properties = {
+          region = "ap-northeast-2"    # 추가
           title  = "ALB Healthy / Unhealthy 호스트 수"
           period = 60
           metrics = [

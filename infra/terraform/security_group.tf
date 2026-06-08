@@ -53,7 +53,7 @@ resource "aws_security_group" "ec2_sg" {
 
 resource "aws_security_group" "ssh_sg" {
   name        = "${var.project_name}-ssh-sg"
-  description = "Tailscale 네트워크를 통한 SSH 접근만 허용"
+  description = "Allow SSH access only via Tailscale network" # 테일스케일 네트워크에서만 SSH 접근 허용
   vpc_id      = aws_vpc.main.id
 
   ingress {

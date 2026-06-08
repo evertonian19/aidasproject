@@ -193,7 +193,7 @@ resource "aws_cloudfront_distribution" "main" {
 # ─── 4. ACM 인증서 (CloudFront는 반드시 us-east-1) ───────────────
 data "aws_acm_certificate" "cf_cert" {
   provider    = aws.us_east_1   # ← 별도 provider 필요
-  domain      = "*.${var.domain_name}"
+  domain      = "${var.domain_name}"
   statuses    = ["ISSUED"]
   most_recent = true
 }
