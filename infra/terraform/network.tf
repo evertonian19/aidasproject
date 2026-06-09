@@ -2,7 +2,7 @@
 # ├── VPC
 # ├── Subnet
 # ├── Route Table
-# ├── NAT Gateway
+# ├── NAT EC2 (nat_ec2_a, nat_ec2_c)  ← 변경
 # └── ENI 
 
 
@@ -56,34 +56,77 @@ resource "aws_subnet" "private_subnet_2"{
   map_public_ip_on_launch = false
   tags = { Name = "${var.project_name}-private-subnet-2" }
 }
-#----------------------------------------------
-# 고정ip발급
-resource "aws_eip" "nat_eip_a" {
+
+
+# NAT EC2 - AZ-A
+resource "aws_instance" "nat_ec2_a" {
+  ami                    = data.aws_ami.latest_al2023.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public_subnet_1.id  # 퍼블릭 서브넷
+  vpc_security_group_ids = [aws_security_group.nat_sg.id]
+  key_name               = aws_key_pair.kp.key_name
+  source_dest_check      = false  # NAT 필수 설정
+  associate_public_ip_address = true  # public ip자동할당 ← 추가
+  user_data_base64 = base64encode(<<-EOF
+    #!/bin/bash
+    # IP 포워딩 활성화
+    cat <<EOT > /etc/sysctl.d/99-nat.conf
+    net.ipv4.ip_forward = 1
+    EOT
+    sysctl -p /etc/sysctl.d/99-nat.conf
+
+    # NAT iptables 설정
+    dnf install -y iptables-services
+    PRIMARY_IF=$(ip route show default | awk '/default/ {print $5}' | head -1)
+    iptables -t nat -A POSTROUTING -o $PRIMARY_IF -j MASQUERADE
+    iptables-save > /etc/sysconfig/iptables
+    systemctl enable --now iptables
+  EOF
+  )
+
+  tags = { Name = "${var.project_name}-nat-ec2-a" }
+}
+
+# NAT EC2 - AZ-C
+resource "aws_instance" "nat_ec2_c" {
+  ami                    = data.aws_ami.latest_al2023.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public_subnet_2.id  # 퍼블릭 서브넷
+  vpc_security_group_ids = [aws_security_group.nat_sg.id]
+  key_name               = aws_key_pair.kp.key_name
+  source_dest_check      = false  # NAT 필수 설정
+  associate_public_ip_address = true
+  user_data_base64 = base64encode(<<-EOF
+    #!/bin/bash
+    cat <<EOT > /etc/sysctl.d/99-nat.conf
+    net.ipv4.ip_forward = 1
+    EOT
+    sysctl -p /etc/sysctl.d/99-nat.conf
+
+    dnf install -y iptables-services
+    iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+    iptables-save > /etc/sysconfig/iptables
+    systemctl enable --now iptables
+  EOF
+  )
+
+  tags = { Name = "${var.project_name}-nat-ec2-c" }
+}
+
+# NAT EC2용 EIP
+resource "aws_eip" "nat_ec2_a_eip" {
+  instance   = aws_instance.nat_ec2_a.id
   domain     = "vpc"
   depends_on = [aws_internet_gateway.igw]
-  tags       = { Name = "${var.project_name}-nat-eip-a" }
+  tags       = { Name = "${var.project_name}-nat-ec2-a-eip" }
 }
 
-resource "aws_eip" "nat_eip_c" {
+resource "aws_eip" "nat_ec2_c_eip" {
+  instance   = aws_instance.nat_ec2_c.id
   domain     = "vpc"
   depends_on = [aws_internet_gateway.igw]
-  tags       = { Name = "${var.project_name}-nat-eip-c" }
+  tags       = { Name = "${var.project_name}-nat-ec2-c-eip" }
 }
-# NAT 게이트웨이 생성 (각 가용영역마다 1개씩)
-resource "aws_nat_gateway" "nat_a" {
-  allocation_id = aws_eip.nat_eip_a.id
-  subnet_id     = aws_subnet.public_subnet_1.id  # az-a 퍼블릭
-  depends_on    = [aws_internet_gateway.igw]
-  tags          = { Name = "${var.project_name}-nat-a" }
-}
-
-resource "aws_nat_gateway" "nat_c" {
-  allocation_id = aws_eip.nat_eip_c.id
-  subnet_id     = aws_subnet.public_subnet_2.id  # az-c 퍼블릭
-  depends_on    = [aws_internet_gateway.igw]
-  tags          = { Name = "${var.project_name}-nat-c" }
-}
-
 
 ##---------퍼블릭 라우팅 테이블
 resource "aws_route_table" "public_rt" {
@@ -111,7 +154,6 @@ resource "aws_route_table_association" "public_assoc_2" {
 }
 
 
-
 #-----------------프라이빗 라우팅 테이블
 resource "aws_route_table" "private_rt_a" {
   vpc_id = aws_vpc.main.id
@@ -123,18 +165,23 @@ resource "aws_route_table" "private_rt_c" {
   tags   = { Name = "${var.project_name}-private-rt-c" }
 }
 
-# ── NAT 경로 2개 (route 블록 대신 aws_route로 분리) ────────
+
+# ── Private Route Table NAT 경로 → NAT EC2로 변경 ──────────────
 resource "aws_route" "private_nat_route_a" {
+  depends_on             = [aws_instance.nat_ec2_a] # Private Route가 NAT EC2보다 먼저 생성되지 않도록 설정.
   route_table_id         = aws_route_table.private_rt_a.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat_a.id
+  network_interface_id   = aws_instance.nat_ec2_a.primary_network_interface_id
 }
 
 resource "aws_route" "private_nat_route_c" {
+  depends_on             = [aws_instance.nat_ec2_c]
   route_table_id         = aws_route_table.private_rt_c.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat_c.id
+  network_interface_id   = aws_instance.nat_ec2_c.primary_network_interface_id
 }
+
+
 # 라우팅 테이블과 프라이빗 서브넷_1 연결
 resource "aws_route_table_association" "private_assoc_1" {
   subnet_id      = aws_subnet.private_subnet_1.id
@@ -175,7 +222,7 @@ resource "aws_network_interface" "tailscale_eni" {
 resource "aws_route" "to_onpremise_public" {
   route_table_id         = aws_route_table.public_rt.id
   destination_cidr_block = var.onpremise_cidr   # 변수로도 분리
-  network_interface_id   = aws_network_interface.tailscale_eni.id  # ✅
+  network_interface_id   = aws_network_interface.tailscale_eni.id
 }
 
 resource "aws_route" "to_onpremise_private_a" {

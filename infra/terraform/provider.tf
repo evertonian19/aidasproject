@@ -54,7 +54,7 @@ provider "tailscale" {
 # # GitHub provider 설정
 # provider "github" {
 #   token = var.github_token
-#   owner = var.github_owner  
+#   owner = var.github_owner
 
 # }
 

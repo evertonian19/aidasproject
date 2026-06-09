@@ -178,6 +178,46 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_green" {
 
   tags = { Name = "${var.project_name}-unhealthy-green" }
 }
+# ─── 5. NAT EC2 CPU 알람 (AZ-A, AZ-C)─────────────────────────────────────────────
+resource "aws_cloudwatch_metric_alarm" "nat_ec2_a_cpu" {
+  alarm_name          = "${var.project_name}-nat-ec2-a-cpu"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "NAT EC2 AZ-A CPU 80% 초과"
+  alarm_actions       = [aws_sns_topic.alarm_topic.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.nat_ec2_a.id
+  }
+
+  tags = { Name = "${var.project_name}-nat-ec2-a-cpu" }
+}
+
+resource "aws_cloudwatch_metric_alarm" "nat_ec2_c_cpu" {
+  alarm_name          = "${var.project_name}-nat-ec2-c-cpu"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "NAT EC2 AZ-C CPU 80% 초과"
+  alarm_actions       = [aws_sns_topic.alarm_topic.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.nat_ec2_c.id
+  }
+
+  tags = { Name = "${var.project_name}-nat-ec2-c-cpu" }
+}
+
+
 # ─── 5. CloudWatch Dashboard ──────────────────────────────────────
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${var.project_name}-dashboard"

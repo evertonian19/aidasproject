@@ -24,14 +24,22 @@ resource "aws_instance" "my_ec2" {
         # 1. 호스트네임 및 시스템 기본 설정
         hostnamectl set-hostname "${var.host_name}"
         echo "127.0.0.1 ${var.host_name}" >> /etc/hosts
-        dnf install -y jq
+        
 
         # 2. 인터넷 대기 (Private Subnet이므로 NAT 준비 대기)
-        until ping -c 1 8.8.8.8 &> /dev/null; do
+        echo "인터넷 연결 대기 중..."
+        for i in $(seq 1 60); do
+            if ping -c 1 8.8.8.8 &> /dev/null; then
+            echo "인터넷 연결 성공! ($i번째 시도)"
+            break
+            fi
+            echo "대기 중... ($i/60)"
             sleep 5
         done
+        # 3-1. 패키지설치
+        dnf install -y jq
 
-        # 3. Tailscale 설치 및 IP 포워딩 활성화
+        # 3-2. Tailscale 설치 및 IP 포워딩 활성화
         curl -fsSL https://tailscale.com/install.sh | sh
         systemctl enable --now tailscaled
         
