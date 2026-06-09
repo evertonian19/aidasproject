@@ -1,0 +1,28 @@
+---
+- name: "🏗️ [ubuntu] 원격 우분투 구형 웹 및 DB 복제본 컨테이너 싹 청소"
+  ansible.builtin.shell: "sshpass -p '{{ my_password }}' ssh -o StrictHostKeyChecking=no user1@{{ ubuntu_ip }} 'sudo docker rm -f aidas-web-service ccmall-web-service aidas-db-replica'"
+  failed_when: false
+
+- name: "🏗️ [ubuntu] 최신 웹 이미지 파일 원격 복사"
+  ansible.builtin.shell: "sshpass -p '{{ my_password }}' scp -o StrictHostKeyChecking=no {{ ansible_env.HOME }}/aidas-web.tar user1@{{ ubuntu_ip }}:/home/user1/aidas-web.tar"
+
+- name: "🏗️ [ubuntu] 원격 우분투 내부에서 최신 웹 이미지 도커에 로드"
+  ansible.builtin.shell: "sshpass -p '{{ my_password }}' ssh -o StrictHostKeyChecking=no user1@{{ ubuntu_ip }} 'sudo docker load -i /home/user1/aidas-web.tar'"
+
+- name: "🏗️ [ubuntu] 원격 우분투 AIDAS 웹 서버 2번 복사본 가동"
+  ansible.builtin.shell: |
+    sshpass -p '{{ my_password }}' ssh -o StrictHostKeyChecking=no user1@{{ ubuntu_ip }} 'sudo docker run -d --name aidas-web-service \
+      -p 8000:8000 \
+      -e DB_URL="postgresql://aidas_user:{{ my_password }}@{{ main_db_ip }}:5432/aidas_db" \
+      --restart always \
+      aidas-web:v1.0'
+
+- name: "🏗️ [ubuntu] ★ 원격 우분투 ReadOnly Replica 포스트그레스 15 복제본 DB 가동 ★"
+  ansible.builtin.shell: |
+    sshpass -p '{{ my_password }}' ssh -o StrictHostKeyChecking=no user1@{{ ubuntu_ip }} 'sudo docker run -d --name aidas-db-replica \
+      -p 5433:5432 \
+      -e POSTGRES_USER=aidas_user \
+      -e POSTGRES_PASSWORD={{ my_password }} \
+      -e POSTGRES_DB=aidas_db \
+      --restart always \
+      postgres:15'

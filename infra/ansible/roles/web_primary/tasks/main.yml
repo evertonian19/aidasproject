@@ -1,0 +1,39 @@
+---
+- name: "🏢 기존 구형 웹 컨테이너 강제 정리"
+  ansible.builtin.shell: "docker rm -f aidas-web-service ccmall-web-service"
+  failed_when: false
+
+- name: "🏢 최신 도커 이미지 빌드"
+  ansible.builtin.shell: "docker build -t aidas-web:v1.0 -f services/web/Dockerfile ."
+  args:
+    chdir: "{{ ansible_env.HOME }}/aidas"
+
+# 🔥 [보안 강화] 꺼져 있는 방화벽 데몬 시스템을 먼저 정상 가동시킵니다!
+- name: "🏢 리눅스 방화벽(firewalld) 서비스 가동"
+  ansible.builtin.systemd:
+    name: "firewalld"
+    state: started
+  become: true
+
+- name: "🏢 [보안 정석] 리눅스 방화벽(firewalld) 가동 및 AIDAS 전용 포트 일괄 개방"
+  ansible.builtin.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+    immediate: true
+  become: true
+  loop:
+    - "8000/tcp"
+    - "5432/tcp"
+    - "5433/tcp"
+
+- name: "🏢 AIDAS 웹 서버 1번 복사본 가동"
+  ansible.builtin.shell: |
+    docker run -d --name aidas-web-service \
+      -p 8000:8000 \
+      -e DB_URL="postgresql://aidas_user:{{ my_password }}@{{ main_db_ip }}:5432/aidas_db" \
+      --restart always \
+      aidas-web:v1.0
+
+- name: "🏢 ➔ 우분투 전송용 이미지 아카이브 추출"
+  ansible.builtin.shell: "docker save -o {{ ansible_env.HOME }}/aidas-web.tar aidas-web:v1.0"
