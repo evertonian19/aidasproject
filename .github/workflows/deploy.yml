@@ -1,1 +1,67 @@
-# [GitHub Actions CD] 빌드된 이미지를 Docker Hub에 푸시한 후 AWS Swarm 클러스터에 롤링 업데이트 배포를 요청하는 파일입니다.
+name: CD
+
+on:
+  push:
+    branches: [] ##실행시에 master넣어주시면됩니다.
+ 
+env:
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/aidas-web
+
+jobs:
+  # ────────────────────────────────────────────────────────────────
+  # 1. build-push — Docker Hub에 이미지 빌드 및 업로드
+  # master 브랜치 push 시에만 실행
+  # ────────────────────────────────────────────────────────────────
+  build-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Docker Hub 로그인
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker 이미지 빌드 및 푸시
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/web/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  # ────────────────────────────────────────────────────────────────
+  # 2. deploy-ec2 — EC2에 SSH 접속 후 컨테이너 재배포
+  # Docker Hub에서 새 이미지를 pull 후 기존 컨테이너 교체
+  # 아직 tailscale 부분은 테스트못해서 추가 예정입니다.
+  # ────────────────────────────────────────────────────────────────
+  deploy-ec2:
+    runs-on: ubuntu-latest
+    needs: build-push
+
+    steps:
+      - name: EC2에 SSH 접속 후 컨테이너 재배포
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+            docker stop aidas-web || true
+            docker rm   aidas-web || true
+
+            docker run -d \
+              --name aidas-web \
+              --restart unless-stopped \
+              -p 8000:8000 \
+              -e DB_URL=${{ secrets.DB_URL }} \
+              ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+            docker image prune -f
