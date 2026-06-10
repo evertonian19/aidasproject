@@ -13,7 +13,20 @@
   hosts: all
   become: true
   roles:
+
+    - role: docker
+      tags: ["docker"]
+      when: ansible_os_family == "RedHat"  # 록키(RedHat) 계열만 이 롤을 타도록 제한
+
+# [조장님 피드백 반영 완공]: 우분투 전용 도커 롤 적용
+- name: Install Docker on ubuntu hosts
+  hosts: ubuntu
+  become: true
+  roles:
+    - role: docker_ubuntu   # 🔥 코드를 주렁주렁 적지 않고 서랍장 이름만 딱 호출!
+
     - role: docker            
+
       tags: ["docker"]
 
 - name: Deploy PLG stack on rocky01
@@ -37,13 +50,25 @@
     - role: node_exporter_agent
       when: node_exporter_enabled | default(true)
 
-
 - name: Deploy AIDAS AI pipeline on rocky01
   hosts: rocky01
   become: true
   roles:
     - rocky01_handler
     
+
+- name: Deploy AIDAS Master Database on Rocky02 (Primary)
+  hosts: rocky02
+  become: true
+  roles:
+    - role: db_primary  
+
+- name: Deploy AIDAS Replica Database on Ubuntu (Replica)
+  hosts: ubuntu
+  become: true
+  roles:
+    - role: db_replica  
+
 - name: Deploy AIDAS Web Services and Database Replicas
   hosts: rocky02, ubuntu
   become: true                        # 🌟 [추가 1] 권한 에러 방지용 관리자 권한 활성화!
@@ -51,3 +76,4 @@
     project_root: "/home/user1/aidas"  # 🌟 [추가 2] 파일 경로 유령 버그를 잡기 위한 마스터 키 변수!
   roles:
     - role: web_db_deployment         
+

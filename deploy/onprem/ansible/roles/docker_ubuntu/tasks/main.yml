@@ -1,0 +1,16 @@
+#roles/docker_ubuntu/tasks/main.yml
+---
+- name: "[Ubuntu] apt 패키지 레포지토리 캐시 최신화"
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: "[Ubuntu] 순정 Docker 패키지 설치"
+  ansible.builtin.apt:
+    name: docker.io
+    state: present
+
+- name: "[Ubuntu] Docker 서비스 시작 및 부팅 시 자동 활성화"
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: yes

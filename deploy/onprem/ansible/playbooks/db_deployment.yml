@@ -1,0 +1,12 @@
+#/home/user1/aidas/deploy/onprem/ansible/playbooks/db_deployment.yml
+- name: Deploy AIDAS Master Database on Rocky02 (Primary)
+  hosts: rocky02
+  become: true
+  roles:
+    - role: db_primary  # 🌟 롤 이름 변경 분할
+
+- name: Deploy AIDAS Replica Database on Ubuntu (Replica)
+  hosts: ubuntu
+  become: true
+  roles:
+    - role: db_replica  # 🌟 롤 이름 변경 분할

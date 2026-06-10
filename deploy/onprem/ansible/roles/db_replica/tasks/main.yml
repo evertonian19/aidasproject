@@ -1,0 +1,45 @@
+#roles/db_replica/tasks/main.yml
+---
+- name: "[Replica] 원격 우분투 구형 DB 컨테이너 및 기존 데이터 디렉토리 완전 청소"
+  ansible.builtin.shell: |
+    sudo docker rm -f aidas-db-replica
+    sudo rm -rf /home/user1/aidas/data
+  failed_when: false
+
+- name: "[Replica] 📁 디비 볼륨 및 데이터 디렉토리 생성"
+  ansible.builtin.file:
+    path: "/home/user1/aidas/data"
+    state: directory
+    mode: '0700'
+    owner: "999"
+    group: "999"
+
+- name: "[Replica] 💡 우분투 서버용 환경변수 파일 복사 배달"
+  ansible.builtin.copy:
+    src: "{{ project_root }}/.env.rocky02"
+    dest: "/home/user1/.env"
+
+- name: "[Replica] 💡 조장님 지정 SQL 자동 시딩 파일(init.sql) 배달"
+  ansible.builtin.copy:
+    src: "{{ project_root }}/init.sql"
+    dest: "/home/user1/aidas/init.sql"
+
+- name: "[Replica] ⚡ [조장님 핵심 피드백] pg_basebackup으로 초기 데이터 동기화 원격 추출"
+  ansible.builtin.shell: |
+    sudo docker run --rm \
+      --env-file /home/user1/.env \
+      -v /home/user1/aidas/data:/var/lib/postgresql/data \
+      postgres:15 \
+      pg_basebackup -h {{ main_db_ip }} -D /var/lib/postgresql/data -U {{ replica_user }} -v -P -R -X stream
+  # 🌟 록키가 가지고 있는 변수 주머니에서 패스워드를 땡겨오기 위해 이 구문은 필수로 유지합니다.
+  environment:
+    PGPASSWORD: "{{ hostvars['rocky02']['extracted_db_pass'] }}"
+
+- name: "[Replica] ★ 원격 우분투 ReadOnly Replica DB 가동 (실시간 WAL 스트리밍) ★"
+  ansible.builtin.shell: |
+    sudo docker run -d --name aidas-db-replica \
+      -p 5433:5432 \
+      --env-file /home/user1/.env \
+      -v /home/user1/aidas/data:/var/lib/postgresql/data \
+      --restart always \
+      postgres:15

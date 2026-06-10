@@ -1,0 +1,10 @@
+---
+# defaults/main.yml
+main_db_ip: "172.16.8.202"
+ubuntu_ip: "172.16.8.203"
+db_user: "aidas_user"
+db_name: "aidas_db"
+project_root: "/home/user1/aidas"
+
+# 🌟 실시간 스트리밍 복제용 전용 변수 추가
+replica_user: "replicator"
