@@ -1,4 +1,3 @@
-# site.yml
 ---
 - name: AIDAS EC2 기본 설정
   hosts: all
@@ -7,3 +6,9 @@
   tasks:
     - name: 연결 확인
       ping:
+
+- name: FastAPI 컨테이너 배포
+  hosts: all
+  become: true
+  roles:
+    - ec2_fastapi

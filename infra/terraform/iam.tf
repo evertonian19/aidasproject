@@ -98,12 +98,10 @@ resource "aws_iam_role" "ec2_s3_role" {
 resource "aws_iam_policy" "ec2_s3_policy" {
   name        = "${var.project_name}-ec2-s3-policy"
   description = "EC2가 S3 자산 버킷에 접근하는 권한"
-
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        # 파일 읽기
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:ListBucket"]
         Resource = [
@@ -112,14 +110,12 @@ resource "aws_iam_policy" "ec2_s3_policy" {
         ]
       },
       {
-        # 로그 업로드
         Effect   = "Allow"
         Action   = ["s3:PutObject"]
         Resource = "${aws_s3_bucket.assets.arn}/logs/*"
       }
     ]
   })
-
   tags = { Name = "${var.project_name}-ec2-s3-policy" }
 }
 

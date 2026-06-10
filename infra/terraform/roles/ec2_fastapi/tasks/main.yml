@@ -1,0 +1,46 @@
+---
+- name: Docker 의존성 설치 (Amazon Linux 2023)
+  dnf:
+    name:
+      - docker
+    state: present
+
+- name: Docker 서비스 시작 및 자동 시작 등록
+  systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: ec2-user를 docker 그룹에 추가
+  user:
+    name: ec2-user
+    groups: docker
+    append: true
+
+- name: Docker Hub 로그인
+  shell: "echo {{ dockerhub_token }} | docker login -u {{ dockerhub_username }} --password-stdin"
+  no_log: true
+
+- name: 기존 컨테이너 정리
+  shell: "docker rm -f {{ container_name }}"
+  failed_when: false
+
+- name: 최신 이미지 Pull
+  shell: "docker pull {{ image_name }}"
+
+- name: FastAPI 컨테이너 실행
+  shell: |
+    docker run -d \
+      --name {{ container_name }} \
+      --restart unless-stopped \
+      -p {{ app_port }}:{{ app_port }} \
+      -e DB_URL="{{ db_url }}" \
+      {{ image_name }}
+
+- name: 컨테이너 기동 확인
+  shell: "docker ps --filter name={{ container_name }} --format '{% raw %}{{.Status}}{% endraw %}'"
+  register: container_status
+
+- name: 상태 출력
+  debug:
+    msg: "aidas-web 상태: {{ container_status.stdout }}"

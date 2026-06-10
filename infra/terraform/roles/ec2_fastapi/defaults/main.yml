@@ -1,0 +1,7 @@
+---
+dockerhub_username: "{{ lookup('env', 'DOCKERHUB_USERNAME') }}"
+dockerhub_token: "{{ lookup('env', 'DOCKERHUB_TOKEN') }}"
+image_name: "{{ dockerhub_username }}/aidas-web:latest"
+db_url: "{{ lookup('env', 'DB_URL') }}"
+container_name: aidas-web
+app_port: 8000

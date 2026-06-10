@@ -52,7 +52,7 @@ resource "aws_instance" "my_ec2" {
 
         # 5. Tailscale 가입 (생성된 Auth Key 사용)
         # --advertise-routes만 던져두면, 승인은 테라폼이 밖에서 해줍니다.
-        tailscale up --authkey=${resource.tailscale_tailnet_key.ec2_join_key.key} \
+        tailscale up --authkey=${tailscale_tailnet_key.ec2_join_key.key} \
                      --advertise-routes=${aws_vpc.main.cidr_block} \
                      --accept-routes
     EOF
@@ -134,6 +134,10 @@ resource "terraform_data" "ansible_run"{
     }
     provisioner "local-exec" {
        command = "ANSIBLE_SSH_PIPELINING=1 ansible-playbook site.yml"
-       # command = "echo 'tailscale success'"
+       environment = {
+         DOCKERHUB_USERNAME = var.dockerhub_username
+         DOCKERHUB_TOKEN    = var.dockerhub_token
+         DB_URL             = var.db_url
+       }
     }
 }

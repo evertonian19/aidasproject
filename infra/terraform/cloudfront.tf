@@ -73,7 +73,7 @@ resource "aws_cloudfront_distribution" "main" {
   is_ipv6_enabled     = true
   comment             = "${var.project_name} CloudFront"
   default_root_object = "index.html"
-  price_class         = "PriceClass_200"  # 미국, 유럽, 아시아 (한국 포함)
+  price_class         = "PriceClass_200"
   aliases             = ["www.${var.domain_name}", var.domain_name]
 
   # ── Origin 1: ALB (동적 요청) ──────────────────────────────────
@@ -84,7 +84,7 @@ resource "aws_cloudfront_distribution" "main" {
     custom_origin_config {
       http_port              = 80
       https_port             = 443
-      origin_protocol_policy = "https-only"  # ALB → HTTPS만 허용
+      origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
   }
@@ -110,10 +110,9 @@ resource "aws_cloudfront_distribution" "main" {
       cookies { forward = "none" }
     }
 
-    # 정적 자산: 7일 캐싱
     min_ttl     = 0
-    default_ttl = 604800   # 7일
-    max_ttl     = 31536000 # 1년
+    default_ttl = 604800
+    max_ttl     = 31536000
   }
 
   # ── Cache Behavior 2: API 요청 (캐싱 비활성화) ────────────────
@@ -131,7 +130,6 @@ resource "aws_cloudfront_distribution" "main" {
       cookies { forward = "all" }
     }
 
-    # API: 캐싱 없음
     min_ttl     = 0
     default_ttl = 0
     max_ttl     = 0
@@ -152,8 +150,8 @@ resource "aws_cloudfront_distribution" "main" {
     }
 
     min_ttl     = 0
-    default_ttl = 60   # 1분
-    max_ttl     = 3600 # 1시간
+    default_ttl = 60
+    max_ttl     = 3600
   }
 
   # ── ACM 인증서 (us-east-1 필수) ───────────────────────────────
@@ -163,18 +161,16 @@ resource "aws_cloudfront_distribution" "main" {
     minimum_protocol_version = "TLSv1.2_2021"
   }
 
-  # ── 지역 제한 없음 ─────────────────────────────────────────────
   restrictions {
     geo_restriction {
       restriction_type = "none"
     }
   }
 
-  # ── 커스텀 에러 페이지 ─────────────────────────────────────────
   custom_error_response {
     error_code            = 403
     response_code         = 200
-    response_page_path    = "/index.html"  # SPA 라우팅 지원
+    response_page_path    = "/index.html"
     error_caching_min_ttl = 10
   }
 
@@ -192,14 +188,13 @@ resource "aws_cloudfront_distribution" "main" {
 
 # ─── 4. ACM 인증서 (CloudFront는 반드시 us-east-1) ───────────────
 data "aws_acm_certificate" "cf_cert" {
-  provider    = aws.us_east_1   # ← 별도 provider 필요
+  provider    = aws.us_east_1
   domain      = "${var.domain_name}"
   statuses    = ["ISSUED"]
   most_recent = true
 }
 
 # ─── 5. Route53 레코드 업데이트 (ALB → CloudFront) ───────────────
-# loadbalancer.tf의 www 레코드를 CloudFront로 교체
 resource "aws_route53_record" "cf_www" {
   zone_id = data.aws_route53_zone.selected.zone_id
   name    = "www.${var.domain_name}"
@@ -207,7 +202,7 @@ resource "aws_route53_record" "cf_www" {
   alias {
     name                   = aws_cloudfront_distribution.main.domain_name
     zone_id                = aws_cloudfront_distribution.main.hosted_zone_id
-    evaluate_target_health = false  # CloudFront는 false 권장
+    evaluate_target_health = false
   }
 }
 
@@ -221,4 +216,3 @@ resource "aws_route53_record" "cf_root" {
     evaluate_target_health = false
   }
 }
-

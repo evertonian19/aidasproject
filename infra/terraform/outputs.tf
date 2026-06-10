@@ -65,18 +65,13 @@ output "alb_arn" {
 
 # ─── CloudFront ───────────────────────────────────────────────────
 output "cloudfront_domain" {
-  description = "CloudFront 도메인"
-  value       = aws_cloudfront_distribution.main.domain_name
+  value = aws_cloudfront_distribution.main.domain_name
 }
-
 output "cloudfront_id" {
-  description = "CloudFront Distribution ID (캐시 무효화 시 필요)"
-  value       = aws_cloudfront_distribution.main.id
+  value = aws_cloudfront_distribution.main.id
 }
-
 output "s3_bucket_name" {
-  description = "정적 자산 S3 버킷 이름"
-  value       = aws_s3_bucket.assets.bucket
+  value = aws_s3_bucket.assets.bucket
 }
 
 # ─── DynamoDB ─────────────────────────────────────────────────────
@@ -121,9 +116,9 @@ output "cloudwatch_dashboard_url" {
 output "service_endpoints" {
   description = "서비스 접속 주소 요약"
   value = {
-    domain      = "https://www.${var.domain_name}"
-    cloudfront  = "https://${aws_cloudfront_distribution.main.domain_name}"
-    alb         = "http://${aws_lb.web_alb.dns_name}"
-    dashboard   = "https://ap-northeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-2#dashboards:name=${aws_cloudwatch_dashboard.main.dashboard_name}"
+    alb        = "http://${aws_lb.web_alb.dns_name}"
+    dashboard  = "https://ap-northeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-2#dashboards:name=${aws_cloudwatch_dashboard.main.dashboard_name}"
+    cloudfront = "https://${aws_cloudfront_distribution.main.domain_name}"
+    domain     = "https://${var.domain_name}"
   }
 }
