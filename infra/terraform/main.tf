@@ -62,13 +62,6 @@ resource "aws_instance" "my_ec2" {
     }
 }
 
-# ENI 연결을 별도 리소스로 분리
-resource "aws_network_interface_attachment" "tailscale_attach" {
-  instance_id          = aws_instance.my_ec2.id
-  network_interface_id = aws_network_interface.tailscale_eni.id
-  device_index         = 1  # 0은 위의 기본 NIC, 1부터 추가 ENI
-}
-
 # 테라폼이 기기를 찾고 라우팅을 승인하는 부분
 data "tailscale_device" "my_ec2_device" {
   # db-server 호스트를 tailscale에서 승인하도록 체크

@@ -31,7 +31,7 @@ terraform {
      encrypt      = true
      profile      = "aidasProject2"
    }
- }
+  }
 
 # 기본 provider (서울)
 provider "aws" {

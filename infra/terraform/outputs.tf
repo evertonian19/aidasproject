@@ -27,7 +27,7 @@ output "private_subnet_ids" {
 # ─── EC2 (Tailscale) ──────────────────────────────────────────────
 output "instance_private_ip" {
   description = "Tailscale EC2 Private IP"
-  value       = aws_network_interface.tailscale_eni.private_ip
+  value       = aws_instance.my_ec2.private_ip
 }
 
 # NAT EC2의 퍼블릭 IP 출력──────────────────────────────────────────────
