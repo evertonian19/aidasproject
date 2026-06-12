@@ -2,7 +2,7 @@ name: CD
 
 on:
   push:
-    branches: []  # 실행시 master 넣어주세요
+    branches: [master]  # 실행시 master 넣어주세요
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/aidas-web
