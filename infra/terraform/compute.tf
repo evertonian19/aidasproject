@@ -70,7 +70,10 @@ mkdir -p /usr/local/lib/docker/cli-plugins
 curl -SL https://github.com/docker/compose/releases/download/v2.26.0/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
-# 시스템 데몬 활성화 및 계정 권한 부여
+rm -f /etc/nginx/conf.d/default.conf
+curl -o /etc/nginx/conf.d/aidas.conf \
+  https://raw.githubusercontent.com/KT-TECHUP-AIDAS/aidas/master/infra/ansible/nginx/nginx.conf
+
 systemctl enable --now nginx
 systemctl enable --now docker
 usermod -aG docker ec2-user
@@ -86,10 +89,6 @@ chmod 755 /opt/promtail/config
 mkdir -p /var/lib/promtail
 chmod 777 /var/lib/promtail
 
-# 기본 Nginx 웹 응답용 홈 디렉토리 및 헬스 체크 인프라 빌드
-mkdir -p /usr/share/nginx/html
-echo "<h1>Hello from ASG Instance <i>\$(hostname)</i> </h1>" > /usr/share/nginx/html/index.html
-echo "ok" > /usr/share/nginx/html/health
 
 echo "=== [3/5] promtail-config.yaml 배포 (정규식/Drop 포함) ==="
 cat << 'PROMTAIL_CONF' > /opt/promtail/config/promtail-config.yaml

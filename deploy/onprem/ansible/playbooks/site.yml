@@ -52,7 +52,7 @@
     - rocky01_handler
     
 
-- name: Deploy AIDAS Master Database on Rocky02 (Primary)
+- name: Deploy AIDAS Master Database on Rocky02 (Primary).
   hosts: rocky02
   become: true
   roles:
