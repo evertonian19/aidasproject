@@ -71,7 +71,7 @@ curl -SL https://github.com/docker/compose/releases/download/v2.26.0/docker-comp
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 rm -f /etc/nginx/conf.d/default.conf
-curl -o /etc/nginx/conf.d/aidas.conf \
+curl -o /etc/nginx/conf.d/nginx.conf \
   https://raw.githubusercontent.com/KT-TECHUP-AIDAS/aidas/master/infra/ansible/nginx/nginx.conf
 
 systemctl enable --now nginx
