@@ -42,7 +42,7 @@ jobs:
     outputs:
       deploy_target: ${{ steps.check.outputs.deploy_target }}
       idle_asg:      ${{ steps.check.outputs.idle_asg }}
-      idle_tg_arn:   ${{ steps.check.outputs.idle_tg_arn }}
+      #idle_tg_arn:   ${{ steps.check.outputs.idle_tg_arn }}
       active_asg:    ${{ steps.check.outputs.active_asg }}
 
     steps:
@@ -74,12 +74,10 @@ jobs:
           if [ "$BLUE_WEIGHT" = "100" ]; then
             echo "deploy_target=green"                >> $GITHUB_OUTPUT
             echo "idle_asg=aidas-asg-green"           >> $GITHUB_OUTPUT
-            echo "idle_tg_arn=${{ secrets.GREEN_TG_ARN }}" >> $GITHUB_OUTPUT
             echo "active_asg=aidas-asg-blue"          >> $GITHUB_OUTPUT
           else
             echo "deploy_target=blue"                 >> $GITHUB_OUTPUT
             echo "idle_asg=aidas-asg-blue"            >> $GITHUB_OUTPUT
-            echo "idle_tg_arn=${{ secrets.BLUE_TG_ARN }}"  >> $GITHUB_OUTPUT
             echo "active_asg=aidas-asg-green"         >> $GITHUB_OUTPUT
           fi
 
@@ -145,13 +143,20 @@ jobs:
             done
         env:
           DB_URL: ${{ secrets.DB_URL }}
+          
 
       - name: 헬스체크 대기
         run: |
+          if [ "${{ needs.detect.outputs.deploy_target }}" = "green" ]; then
+            IDLE_TG_ARN="${{ secrets.GREEN_TG_ARN }}"
+          else
+            IDLE_TG_ARN="${{ secrets.BLUE_TG_ARN }}"
+          fi
+
           echo "ALB 헬스체크 대기중..."
           for i in $(seq 1 20); do
             HEALTHY=$(aws elbv2 describe-target-health \
-              --target-group-arn ${{ needs.detect.outputs.idle_tg_arn }} \
+              --target-group-arn "$IDLE_TG_ARN" \
               --query "TargetHealthDescriptions[?TargetHealth.State=='healthy'] | length(@)" \
               --output text)
             if [ "$HEALTHY" -ge "2" ]; then
