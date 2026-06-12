@@ -14,7 +14,8 @@ resource "aws_instance" "my_ec2" {
     # subnet은 ENI와 같은 서브넷으로 지정
     subnet_id              = aws_subnet.private_subnet_1.id
     vpc_security_group_ids = [aws_security_group.ssh_sg.id, aws_security_group.ec2_sg.id]
-        
+    source_dest_check    = false  
+
     user_data = base64encode(<<-EOF
         #!/bin/bash
         # 로그 파일 생성 및 모든 출력 기록
@@ -61,6 +62,10 @@ resource "aws_instance" "my_ec2" {
         chown ec2-user:ec2-user /home/ec2-user/aidas-key.pem
     EOF
     )   
+    root_block_device {
+        volume_size = 40
+        volume_type = "gp3"
+    }
     tags = {
         Name = "aidas-ec2"
     }

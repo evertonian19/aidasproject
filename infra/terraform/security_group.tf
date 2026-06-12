@@ -99,7 +99,20 @@ resource "aws_security_group" "ssh_sg" {
     protocol    = "tcp"
     cidr_blocks = ["100.64.0.0/10"]  # Tailscale IP 대역
   }
-
+  ingress {
+    description = "ICMP from VPC (for health/troubleshooting)"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+  ingress {
+    description = "Loki HTTP from VPC"
+    from_port   = 3100
+    to_port     = 3100
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
   egress {
     from_port   = 0
     to_port     = 0
