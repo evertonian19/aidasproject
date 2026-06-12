@@ -123,18 +123,17 @@ resource "terraform_data" "wait_for_instance"{
     }
 }
 
-resource "terraform_data" "ansible_run"{
-    depends_on = [ terraform_data.wait_for_instance ]
-    triggers_replace = {
-        instance_id = aws_instance.my_ec2.id
+#resource "terraform_data" "ansible_run"{
+    #depends_on = [ terraform_data.wait_for_instance ]
+    #triggers_replace = {
+    #    instance_id = aws_instance.my_ec2.id
         
-    }
-    provisioner "local-exec" {
-       command = "ANSIBLE_SSH_PIPELINING=1 ansible-playbook site.yml"
-       environment = {
-         DOCKERHUB_USERNAME = var.dockerhub_username
-         DOCKERHUB_TOKEN    = var.dockerhub_token
-         DB_URL             = var.db_url
-       }
-    }
-}
+   # }
+   # provisioner "local-exec" {
+   #    command = "ANSIBLE_SSH_PIPELINING=1 ansible-playbook site.yml"
+   #    environment = {
+   #      DOCKERHUB_USERNAME = var.dockerhub_username
+   #      DOCKERHUB_TOKEN    = var.dockerhub_token
+  #       DB_URL             = var.db_url
+ #      }
+#    }
