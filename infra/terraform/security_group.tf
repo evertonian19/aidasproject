@@ -106,6 +106,13 @@ resource "aws_security_group" "ssh_sg" {
     protocol    = "icmp"
     cidr_blocks = ["10.0.0.0/16"]
   }
+    ingress {
+    description = "PostgreSQL from VPC"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
   ingress {
     description = "Loki HTTP from VPC"
     from_port   = 3100
