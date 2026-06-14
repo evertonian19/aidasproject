@@ -168,8 +168,8 @@ resource "aws_autoscaling_group" "asg_blue" {
   name                = "${var.project_name}-asg-blue"
   vpc_zone_identifier = [aws_subnet.private_subnet_1.id, aws_subnet.private_subnet_2.id]
   max_size            = var.max_size
-  min_size            = var.min_size
-  desired_capacity    = var.desired_capacity
+  min_size            = 0
+  desired_capacity    = 2
   depends_on = [
   aws_instance.nat_ec2_a,
   aws_instance.nat_ec2_c
@@ -195,7 +195,7 @@ resource "aws_autoscaling_group" "asg_blue" {
 resource "aws_autoscaling_group" "asg_green" {
   name                = "${var.project_name}-asg-green"
   vpc_zone_identifier = [aws_subnet.private_subnet_1.id, aws_subnet.private_subnet_2.id]
-  max_size            = var.max_size
+  max_size            = 4
   min_size            = 0             # 평소엔 0 (비용 절감)
   desired_capacity    = 0             # 배포 시에만 올림
 

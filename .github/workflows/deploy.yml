@@ -2,7 +2,7 @@ name: CD
 
 on:
   push:
-    branches: [master]  # 실행시 master 넣어주세요  
+    branches: [master]
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/aidas-web
@@ -42,7 +42,6 @@ jobs:
     outputs:
       deploy_target: ${{ steps.check.outputs.deploy_target }}
       idle_asg:      ${{ steps.check.outputs.idle_asg }}
-      #idle_tg_arn:   ${{ steps.check.outputs.idle_tg_arn }}
       active_asg:    ${{ steps.check.outputs.active_asg }}
 
     steps:
@@ -72,13 +71,13 @@ jobs:
             --output text)
 
           if [ "$BLUE_WEIGHT" = "100" ]; then
-            echo "deploy_target=green"                >> $GITHUB_OUTPUT
-            echo "idle_asg=aidas-asg-green"           >> $GITHUB_OUTPUT
-            echo "active_asg=aidas-asg-blue"          >> $GITHUB_OUTPUT
+            echo "deploy_target=green" >> $GITHUB_OUTPUT
+            echo "idle_asg=aidas-asg-green" >> $GITHUB_OUTPUT
+            echo "active_asg=aidas-asg-blue" >> $GITHUB_OUTPUT
           else
-            echo "deploy_target=blue"                 >> $GITHUB_OUTPUT
-            echo "idle_asg=aidas-asg-blue"            >> $GITHUB_OUTPUT
-            echo "active_asg=aidas-asg-green"         >> $GITHUB_OUTPUT
+            echo "deploy_target=blue" >> $GITHUB_OUTPUT
+            echo "idle_asg=aidas-asg-blue" >> $GITHUB_OUTPUT
+            echo "active_asg=aidas-asg-green" >> $GITHUB_OUTPUT
           fi
 
   # ────────────────────────────────────────────────────────────────
@@ -101,14 +100,22 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
-      - name: 유휴 ASG EC2 2개 생성
+      - name: 유휴 ASG 활성화 (min=2, max=4, desired=2)
         run: |
-          aws autoscaling set-desired-capacity \
+          aws autoscaling update-auto-scaling-group \
             --auto-scaling-group-name ${{ needs.detect.outputs.idle_asg }} \
+            --min-size 2 \
+            --max-size 4 \
             --desired-capacity 2
 
-      - name: EC2 부팅 대기 (90초)
-        run: sleep 90
+      - name: EC2 인스턴스 Running 상태 대기
+        run: |
+          echo "인스턴스가 부팅될 때까지 대기합니다..."
+          aws ec2 wait instance-running \
+            --filters "Name=tag:aws:autoscaling:groupName,Values=${{ needs.detect.outputs.idle_asg }}"
+
+      - name: user_data 실행 완료 대기 (60초)
+        run: sleep 60
 
       - name: 유휴 ASG EC2 IP 조회
         run: |
@@ -143,7 +150,6 @@ jobs:
             done
         env:
           DB_URL: ${{ secrets.DB_URL }}
-          
 
       - name: 헬스체크 대기
         run: |
@@ -218,10 +224,12 @@ jobs:
               ]
             }"
 
-      - name: 이전 ASG 0으로
+      - name: 이전 ASG 완전 종료 (min=0, max=0, desired=0)
         run: |
-          aws autoscaling set-desired-capacity \
+          aws autoscaling update-auto-scaling-group \
             --auto-scaling-group-name ${{ needs.detect.outputs.active_asg }} \
+            --min-size 0 \
+            --max-size 0 \
             --desired-capacity 0
 
           echo "## 배포 완료" >> $GITHUB_STEP_SUMMARY
@@ -236,12 +244,11 @@ jobs:
           fi
 
   # ────────────────────────────────────────────────────────────────
-  # JOB 5. rollback — 실패시 롤백
+  # JOB 5. rollback — 실패시 롤백 
   # ────────────────────────────────────────────────────────────────
   rollback:
     runs-on: ubuntu-latest
     needs: [detect, deploy, switch-listener]
-    # ✅ 수정됨: 파이프라인이 실패했으면서 && detect(상태 파악)는 성공했을 때만 롤백 실행!
     if: failure() && needs.detect.result == 'success'
     steps:
       - name: AWS CLI 설정
@@ -285,10 +292,12 @@ jobs:
               ]
             }"
 
-      - name: 유휴 ASG 다시 0으로
+      - name: 유휴 ASG 다시 완전 종료 (min=0, max=0, desired=0)
         run: |
-          aws autoscaling set-desired-capacity \
+          aws autoscaling update-auto-scaling-group \
             --auto-scaling-group-name ${{ needs.detect.outputs.idle_asg }} \
+            --min-size 0 \
+            --max-size 0 \
             --desired-capacity 0
 
           echo "## 롤백 완료" >> $GITHUB_STEP_SUMMARY
