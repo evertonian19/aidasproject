@@ -72,7 +72,7 @@ chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 rm -f /etc/nginx/conf.d/default.conf
 curl -o /etc/nginx/conf.d/nginx.conf \
-  https://raw.githubusercontent.com/KT-TECHUP-AIDAS/aidas/master/infra/ansible/nginx/nginx.conf
+  https://raw.githubusercontent.com/KT-TECHUP-AIDAS/aidas/master/infra/nginx/nginx.conf
 
 systemctl enable --now nginx
 systemctl enable --now docker
