@@ -27,7 +27,7 @@ def send_slack(original_log: str, analysis: str, elapsed: float):
                     "type": "header",
                     "text": {
                         "type": "plain_text",
-                        "text": "🚨 AIDAS 장애 감지 알림"
+                        "text": "🔍 AIDAS AI 분석 완료"
                     }
                 },
                 {

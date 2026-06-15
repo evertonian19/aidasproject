@@ -2,7 +2,7 @@ name: CD
 
 on:
   push:
-    branches: [master]
+    branches: []
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/aidas-web

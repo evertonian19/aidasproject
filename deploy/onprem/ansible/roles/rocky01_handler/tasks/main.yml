@@ -8,7 +8,17 @@
   loop:
     - "{{ aidas_ai_dir }}"
     - "{{ aidas_scenario_dir }}"
+    - "{{ aidas_prompt_dir }}"
 
+- name: Python 3.11 설치
+  dnf:
+    name: python3.11
+    state: present
+
+- name: pip 업그레이드
+  shell: python3.11 -m pip install --upgrade pip
+  args:
+    executable: /bin/bash
 
 - name: handler.py 배포
   copy:
@@ -19,37 +29,35 @@
     group: user1
   notify: restart handler
 
-
 - name: requirements.txt 배포
   copy:
-    src: ../../../../lambda/analyzer/requirements.txt
+    content: |
+      httpx
+      apscheduler
+      boto3
+      python-dotenv
     dest: "{{ aidas_ai_dir }}/requirements.txt"
     mode: "0644"
-
 
 - name: pip 패키지 설치
   pip:
     requirements: "{{ aidas_ai_dir }}/requirements.txt"
     executable: pip3.11
 
-
-
-- name: system_prompt.txt 배포
+- name: system_prompt.md 배포
   copy:
-    src: "{{ aidas_prompt_dir }}/system_prompt.md"
+    src: ../../../../prompts/system_prompt.md
     dest: "{{ aidas_prompt_dir }}/system_prompt.md"
     mode: "0644"
   notify: restart handler
 
-
 - name: 시나리오 프롬프트 배포
   copy:
-    src: "{{ aidas_scenario_dir }}/{{ item }}"
+    src: "../../../../prompts/scenarios/{{ item }}"
     dest: "{{ aidas_scenario_dir }}/{{ item }}"
     mode: "0644"
   loop: "{{ scenario_files }}"
   notify: restart handler
-
 
 - name: .env 배포
   copy:
@@ -59,9 +67,30 @@
     owner: user1
     group: user1
 
+- name: handler systemd 서비스 파일 생성
+  copy:
+    dest: /etc/systemd/system/aidas-handler.service
+    content: |
+      [Unit]
+      Description=AIDAS Log Handler
+      After=network.target
 
-- name: handler.py 백그라운드 실행
-  shell: |
-    nohup python3.11 {{ aidas_ai_dir }}/handler.py > {{ aidas_log_file }} 2>&1 &
-  args:
-    executable: /bin/bash
+      [Service]
+      User=user1
+      WorkingDirectory={{ aidas_ai_dir }}
+      ExecStart=/usr/bin/python3.11 {{ aidas_ai_dir }}/handler.py
+      Restart=always
+      RestartSec=5
+      EnvironmentFile={{ aidas_base_dir }}/.env
+      StandardOutput=append:{{ aidas_log_file }}
+      StandardError=append:{{ aidas_log_file }}
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: handler 서비스 활성화 및 시작
+  systemd:
+    name: aidas-handler
+    enabled: yes
+    state: started
+    daemon_reload: yes

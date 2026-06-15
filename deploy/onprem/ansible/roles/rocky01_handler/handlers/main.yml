@@ -1,6 +1,5 @@
 - name: restart handler
-  shell: |
-    pkill -f handler.py || true
-    nohup python3 {{ aidas_ai_dir }}/handler.py > {{ aidas_log_file }} 2>&1 &
-  args:
-    executable: /bin/bash
+  systemd:
+    name: aidas-handler
+    state: restarted
+    daemon_reload: yes
