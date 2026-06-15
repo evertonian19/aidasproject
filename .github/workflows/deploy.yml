@@ -99,7 +99,10 @@ jobs:
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-
+      - name: Tailscale 연결 확인
+        run: |
+          tailscale status
+          tailscale ping 100.94.64.16 || true
       - name: 유휴 ASG 활성화 (min=2, max=4, desired=2)
         run: |
           aws autoscaling update-auto-scaling-group \
