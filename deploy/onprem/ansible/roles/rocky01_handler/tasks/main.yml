@@ -82,9 +82,6 @@
       Restart=always
       RestartSec=5
       EnvironmentFile=/etc/aidas.env
-      StandardOutput=append:{{ aidas_log_file }}
-      StandardError=append:{{ aidas_log_file }}
-
       [Install]
       WantedBy=multi-user.target
 
