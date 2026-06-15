@@ -1,103 +1,96 @@
 import json
 import os
 import boto3
-import urllib.request
-from datetime import datetime, timezone
+import re
+import uuid
+import urllib.request  # 🔥 슬랙 전송을 위한 파이썬 기본 내장 모듈
+from datetime import datetime, timezone, timedelta
 
-# ─── 환경변수 ──────────────────────────────────────────────────────
-SLACK_WEBHOOK_URL = os.environ["SLACK_WEBHOOK_URL"]
-DYNAMODB_TABLE    = os.environ.get("DYNAMODB_TABLE", "aidas-incidents")
-AWS_REGION        = os.environ.get("AWS_REGION", "ap-northeast-2")
-
-dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
-table    = dynamodb.Table(DYNAMODB_TABLE)
-
-
-
-def get_timestamp() -> str:
-    now = datetime.now(timezone.utc)
-    return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
-
-
-def send_slack(original_log: str, analysis: str, elapsed: float):
-    try:
-        message = {
-            "blocks": [
-                {
-                    "type": "header",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "🔍 AIDAS AI 분석 완료"
-                    }
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"*원본 로그*\n```\n{original_log}\n```"
-                    }
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"*AI 분석 결과*\n{analysis}"
-                    }
-                },
-                {
-                    "type": "context",
-                    "elements": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"⏱ 분석 소요 시간: {elapsed:.2f}초"
-                        }
-                    ]
-                }
-            ]
-        }
-        req = urllib.request.Request(
-            SLACK_WEBHOOK_URL,
-            data    = json.dumps(message).encode("utf-8"),
-            headers = {"Content-Type": "application/json"},
-            method  = "POST"
-        )
-        with urllib.request.urlopen(req) as res:
-            print(f"[AIDAS] Slack 전송 완료: {res.status}")
-
-    except Exception as e:
-        print(f"[AIDAS] Slack 전송 실패: {e}")
-
-
-def save_dynamodb(original_log: str, analysis: str, timestamp: str, service_name: str):
-    try:
-        table.put_item(
-            Item={
-                "incident_id":       f"incident-{timestamp}",
-                "timestamp":         timestamp,
-                "incident_status":   "detected",
-                "incident_severity": "ERROR",
-                "service_name":      service_name,
-                "original_log":      original_log,
-                "analysis":          analysis
-            }
-        )
-        print("[AIDAS] DynamoDB 저장 완료")
-
-    except Exception as e:
-        print(f"[AIDAS] DynamoDB 저장 실패: {e}")
-
+# 초기화
+dynamodb = boto3.resource('dynamodb')
+table_name = os.environ.get('DYNAMODB_TABLE', 'aidas-incidents')
+slack_webhook_url = os.environ.get('SLACK_WEBHOOK_URL') # 🔥 테라폼에서 넘겨준 슬랙 URL
+table = dynamodb.Table(table_name)
 
 def lambda_handler(event, context):
-    original_log = event.get("original_log", "")
-    analysis     = event.get("ai_analysis_result", "")
-    elapsed      = event.get("elapsed", 0.0)
-    service_name = event.get("service_name", "unknown")
-    timestamp = event.get("timestamp") or get_timestamp()
+    try:
+        # 1. 데이터 받기
+        service_name = event.get('service_name', 'UnknownService')
+        raw_timestamp = event.get('timestamp', '0')
+        original_log = event.get('original_log', '')
+        ai_text = event.get('ai_analysis_result', '')
+        elapsed = round(event.get('elapsed', 0.0), 2)
+        
+        # 2. 타임스탬프 변환 (KST)
+        ts_sec = int(raw_timestamp) / 1_000_000_000
+        kst_tz = timezone(timedelta(hours=9))
+        dt_kst = datetime.fromtimestamp(ts_sec, kst_tz)
+        readable_time = dt_kst.strftime('%Y-%m-%d %H:%M:%S KST')
 
+        # 3. 데이터 파싱
+        title = f"[{service_name}] 이상 징후 감지"
+        cause = "분석 내용 없음"
+        action = "조치 가이드 없음"
 
-    send_slack(original_log, analysis, elapsed)
+        title_match = re.search(r'\[장애 유형\]\s*:?\s*(.*)', ai_text)
+        if title_match:
+            title = title_match.group(1).strip()
 
+        cause_match = re.search(r'\[발생 원인\]\s*:?\s*(.*?)(?=\[권장 조치 가이드\]|$)', ai_text, re.DOTALL)
+        if cause_match:
+            cause = cause_match.group(1).strip()
 
-    save_dynamodb(original_log, analysis, timestamp, service_name)
+        action_match = re.search(r'\[권장 조치 가이드\]\s*:?\s*(.*)', ai_text, re.DOTALL)
+        if action_match:
+            action = action_match.group(1).strip()
 
-    return {"statusCode": 200, "body": "OK"}
+        # 4. DynamoDB 저장 (DB에 이쁘게 넣기)
+        item = {
+            'incident_id': str(uuid.uuid4()),
+            'timestamp': str(raw_timestamp),
+            'status': 'OPEN',
+            'severity': 'HIGH',
+            'service_name': service_name,
+            'Date_KST': readable_time,
+            'IncidentTitle': title,
+            'RootCause': cause,
+            'ActionGuide': action,
+            'OriginalLog': original_log,
+            'AnalysisTimeSec': str(elapsed)
+        }
+        table.put_item(Item=item)
+        print("✅ DynamoDB 저장 성공")
+
+        # 5. 🔥 2차 슬랙 알림 전송 (이쁘게 파싱된 데이터로 쏘기)
+        if slack_webhook_url:
+            slack_message = {
+                "text": (
+                    f"🔍 *[AIDAS AI 분석 완료]*\n"
+                    f"*서비스:* `{service_name}`\n"
+                    f"*원본 로그:*\n```{original_log}```\n"
+                    f"*AI 분석 결과:*\n"
+                    f"🚨 *장애 유형:* {title}\n"
+                    f"🔎 *발생 원인:* {cause}\n"
+                    f"🛠️ *권장 조치:* {action}\n"
+                    f"⏱ *분석 소요 시간:* {elapsed}초"
+                )
+            }
+            req = urllib.request.Request(
+                slack_webhook_url, 
+                data=json.dumps(slack_message).encode('utf-8'), 
+                headers={'Content-Type': 'application/json'}
+            )
+            urllib.request.urlopen(req)
+            print("✅ Slack 2차 알림 전송 성공")
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps('Success: Saved to DB and sent to Slack!')
+        }
+
+    except Exception as e:
+        print(f"❌ 오류 발생: {e}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f"Error: {str(e)}")
+        }

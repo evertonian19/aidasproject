@@ -82,6 +82,8 @@
       Restart=always
       RestartSec=5
       EnvironmentFile=/etc/aidas.env
+
+
       [Install]
       WantedBy=multi-user.target
 
