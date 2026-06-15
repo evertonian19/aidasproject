@@ -62,10 +62,10 @@
 - name: .env 배포
   copy:
     src: /home/user1/aidas/.env
-    dest: "{{ aidas_base_dir }}/.env"
+    dest: /etc/aidas.env
     mode: "0600"
-    owner: user1
-    group: user1
+    owner: root
+    group: root
 
 - name: handler systemd 서비스 파일 생성
   copy:
@@ -81,7 +81,7 @@
       ExecStart=/usr/bin/python3.11 {{ aidas_ai_dir }}/handler.py
       Restart=always
       RestartSec=5
-      EnvironmentFile={{ aidas_base_dir }}/.env
+      EnvironmentFile=/etc/aidas.env
       StandardOutput=append:{{ aidas_log_file }}
       StandardError=append:{{ aidas_log_file }}
 
