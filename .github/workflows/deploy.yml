@@ -147,6 +147,7 @@ jobs:
                   --restart unless-stopped \
                   -p 8000:8000 \
                   -e DB_URL=$DB_URL \
+                  -v /var/log/apps:/var/log/apps \
                   $IMAGE_NAME:$GITHUB_SHA
               "
             done

@@ -18,6 +18,10 @@ if raw_logger.handlers:
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(logging.Formatter('%(message)s'))  # 앞대가리 시간/레벨 포맷 다 제거!
 raw_logger.addHandler(stream_handler)
+file_handler = logging.FileHandler('/var/log/apps/aidas-test.log')
+file_handler.setFormatter(logging.Formatter('%(message)s'))
+raw_logger.addHandler(file_handler)
+
 
 
 @router.post("/incident/{incident_code}")
