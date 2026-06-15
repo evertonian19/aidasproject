@@ -98,3 +98,9 @@ variable "db_url" {
   type        = string
   sensitive   = true
 }
+
+variable "loki_url" {
+  description = "Promtail이 로그를 푸시할 Loki endpoint URL"
+  type        = string
+  sensitive   = true
+}

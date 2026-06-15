@@ -90,3 +90,9 @@ resource "github_actions_secret" "tailscale_authkey" {
   secret_name     = "TAILSCALE_AUTHKEY"
   plaintext_value = var.tailscale_auth_key
 }
+
+resource "github_actions_secret" "loki_url" {
+  repository      = "aidas"
+  secret_name     = "LOKI_URL"
+  plaintext_value = var.loki_url
+}

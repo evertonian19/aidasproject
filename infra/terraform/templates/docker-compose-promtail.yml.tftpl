@@ -1,0 +1,12 @@
+version: "3.9"
+
+services:
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    volumes:
+      - /opt/promtail/config/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      - /var/log/apps:/var/log/apps:ro
+      - /var/lib/promtail:/var/lib/promtail

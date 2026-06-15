@@ -31,6 +31,14 @@ data "aws_ami" "latest_al2023" {
   }
 }
 
+locals {
+  promtail_config = templatefile("${path.module}/templates/promtail-config.yaml.tftpl", {
+    loki_url = var.loki_url
+  })
+
+  promtail_compose = templatefile("${path.module}/templates/docker-compose-promtail.yml.tftpl", {})
+}
+
 # 3. ASG 런치 템플릿(ec2 설계도) 생성
 resource "aws_launch_template" "lt" {
   name_prefix            = "${var.project_name}-asg-"                 # ec2 이름 접두사
@@ -48,117 +56,11 @@ resource "aws_launch_template" "lt" {
       volume_type = "gp3"
     }
   }
-user_data = base64encode(<<-EOF
-#!/bin/bash
-
-# 수집 타겟 로그 파일 경로 생성 및 권한 마킹
-mkdir -p /var/log/apps
-touch /var/log/apps/aidas-test.log
-chmod 755 /var/log/apps
-chmod 644 /var/log/apps/aidas-test.log
-
-# 런타임 출력 및 에러 실시간 로그 기록 장부 가동
-exec > >(tee -a /var/log/apps/aidas-test.log) 2>&1
-
-echo "=== [1/5] 기본 패키지 및 런타임 엔진(Docker, Nginx) 설치 ==="
-dnf remove -y podman buildah cgroupby
-dnf update -y
-dnf install -y docker jq nginx stress
-
-
-echo "Nginx 기본 서버 블록의 포트를 8080으로 변경합니다."
-sed -i 's/listen\s*80;/listen 8080;/g' /etc/nginx/nginx.conf
-sed -i 's/listen\s*\[::\]:80;/listen [::]:8080;/g' /etc/nginx/nginx.conf
-
-
-# Docker Compose V2 코어 플러그인 설치
-mkdir -p /usr/local/lib/docker/cli-plugins
-curl -SL https://github.com/docker/compose/releases/download/v2.26.0/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
-chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-
-rm -f /etc/nginx/conf.d/default.conf
-curl -o /etc/nginx/conf.d/nginx.conf \
-  https://raw.githubusercontent.com/KT-TECHUP-AIDAS/aidas/master/infra/ansible/nginx/nginx.conf
-
-systemctl enable --now nginx
-systemctl enable --now docker
-usermod -aG docker ec2-user
-
-echo "=== [2/5] 디렉토리 생성 및 권한 부여 ==="
-# 1) promtail_base_dir & promtail_config_dir 생성 (mode: 0755)
-mkdir -p /opt/promtail
-mkdir -p /opt/promtail/config
-chmod 755 /opt/promtail
-chmod 755 /opt/promtail/config
-
-# 2) promtail_positions_dir 생성 (컨테이너 쓰기 차단 방지 mode: 0777)
-mkdir -p /var/lib/promtail
-chmod 777 /var/lib/promtail
-
-
-echo "=== [3/5] promtail-config.yaml 배포 (정규식/Drop 포함) ==="
-cat << 'PROMTAIL_CONF' > /opt/promtail/config/promtail-config.yaml
-server:
-  http_listen_port: 9080
-  grpc_listen_port: 0
-
-positions:
-  filename: /var/lib/promtail/positions.yaml
-
-clients:
-  - url: http://172.16.8.201:3100/loki/api/v1/push  # rocky01 private ip
-
-scrape_configs:
-  - job_name: system-logs
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: system-logs
-          host: aws-asg-ec2
-          service_name: nginx-web
-          component: web-tier
-          __path__: /var/log/apps/*.log
-
-    pipeline_stages:
-      - regex:
-          expression: '^(?P<level>WARNING|WARN|ERROR|FATAL|CRITICAL|INFO|DEBUG):\s*\[(?P<component>[^\]]+)\]\s*(?P<message>.*)'
-
-      - labels:
-          level:
-          component:
-
-#      - match:
-#          selector: '{level!~"WARNING|WARN|ERROR|FATAL|CRITICAL"}'
-#          action: drop
-PROMTAIL_CONF
-
-# 플레이스홀더 인스턴스 고유 호스트네임으로 라이브 치환
-sed -i "s/aws-asg-ec2/$(hostname)/g" /opt/promtail/config/promtail-config.yaml
-
-echo "=== [4/5] docker-compose-promtail.yml 배포 ==="
-cat << 'COMPOSE_CONF' > /opt/promtail/docker-compose-promtail.yml
-version: "3.9"
-
-services:
-  promtail:
-    image: grafana/promtail:3.0.0
-    container_name: promtail
-    restart: unless-stopped
-    command: -config.file=/etc/promtail/promtail-config.yaml
-    volumes:
-      # 호스트의 /opt/promtail/config/ 설정을 컨테이너의 기본 컨텍스트 주소로 마운트
-      - /opt/promtail/config/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
-      - /var/log/apps:/var/log/apps:ro
-      - /var/lib/promtail:/var/lib/promtail
-COMPOSE_CONF
-
-echo "=== [5/5] Promtail Agent 컨테이너 기동 ==="
-cd /opt/promtail
-docker compose -f docker-compose-promtail.yml up -d
-
-echo "=== AWS 온디맨드 에이전트 파이프라인 아키텍처 동기화 완료 ==="
-EOF
+  user_data = base64encode(
+    templatefile("${path.module}/templates/cloud-init-promtail.tftpl", {
+      promtail_config_b64  = base64encode(local.promtail_config)
+      promtail_compose_b64 = base64encode(local.promtail_compose)
+    })
   )
 
   tag_specifications {
