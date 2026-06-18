@@ -206,7 +206,7 @@ jobs:
 
           LISTENER_ARN=$(aws elbv2 describe-listeners \
             --load-balancer-arn "$ALB_ARN" \
-            --query "Listeners[1].ListenerArn" \
+            --query "Listeners[?Port==\`443\`].ListenerArn" \
             --output text)
 
           echo "listener_arn=$LISTENER_ARN" >> $GITHUB_OUTPUT
