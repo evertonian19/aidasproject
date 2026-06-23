@@ -1,5 +1,4 @@
 ---
-# 🌟 [보완] 옛날 이름(master)과 새 이름(primary) 컨테이너가 5432 포트를 물고 있다면 둘 다 강제 완파!
 - name: "[Primary] 구형 프라이머리 및 마스터 DB 컨테이너 깔끔하게 정리"
   ansible.builtin.shell: "docker rm -f aidas-db-primary aidas-db-master"
   failed_when: false
@@ -8,25 +7,36 @@
   ansible.builtin.set_fact:
     extracted_db_pass: "{{ lookup('ansible.builtin.ini', 'POSTGRES_PASSWORD type=properties file=' ~ project_root ~ '/.env.rocky02') }}"
 
-- name: "[Primary] init.sql 디렉토리 생성"
+- name: "[Primary] 디렉토리 생성"
   ansible.builtin.file:
-    path: /home/user1/aidas
-    state: directory
-    mode: "0755"
-
-- name: "[Primary] 🌐 우분투 원격 NFS 폴더를 연결할 로컬 마운트 포인트 생성"
-  ansible.builtin.file:
-    path: /home/user1/aidas/shared_db_data
+    path: "{{ item }}"
     state: directory
     mode: "0777"
+  loop:
+    - /home/user1/aidas
+    - /home/user1/aidas/nfs_db_data
 
-- name: "[Primary] 🌐 우분투 원격 NFS 공유 폴더를 록키 로컬로 실시간 마운트"
-  ansible.posix.mount:
-    src: "{{ ubuntu_ip }}:/home/user1/aidas/nfs_db_data"
-    path: /home/user1/aidas/shared_db_data
-    opts: "rw,sync,noatime"
-    state: mounted
-    fstype: nfs
+- name: "[Primary] 🖧 NFS 서버 패키지 설치"
+  ansible.builtin.package:
+    name: nfs-utils
+    state: present
+
+- name: "[Primary] 🖧 NFS 서버 활성화 및 시작"
+  ansible.builtin.systemd:
+    name: nfs-server
+    enabled: true
+    state: started
+
+- name: "[Primary] 🌐 NFS exports 등록 (ubuntu01 접근 허용)"
+  ansible.builtin.lineinfile:
+    path: /etc/exports
+    line: "/home/user1/aidas/nfs_db_data {{ ubuntu_ip }}(rw,sync,no_root_squash)"
+    state: present
+  register: nfs_exports
+
+- name: "[Primary] 🔄 exportfs 적용"
+  ansible.builtin.shell: exportfs -ra
+  when: nfs_exports.changed
 
 - name: "[Primary] init.sql rocky02에 복사"
   ansible.builtin.copy:
@@ -40,30 +50,30 @@
     dest: /home/user1/.env
     mode: "0600"
 
-- name: "[Primary] ★ PostgreSQL 프라이머리 DB 컨테이너 가동 (NFS 볼륨 연동) ★"
+- name: "[Primary] ★ PostgreSQL 프라이머리 DB 컨테이너 가동"
   ansible.builtin.shell: |
     docker run -d --name aidas-db-primary \
       -p 5432:5432 \
       --env-file /home/user1/.env \
       -e PGDATA=/var/lib/postgresql/data/pgdata \
       -v /home/user1/aidas/init.sql:/docker-entrypoint-initdb.d/init.sql \
-      -v /home/user1/aidas/shared_db_data/master:/var/lib/postgresql/data \
+      -v /home/user1/aidas/nfs_db_data/master:/var/lib/postgresql/data \
       --restart always \
       postgres:15 -c wal_level=replica -c max_wal_senders=10 -c max_replication_slots=10
 
-- name: "[Primary] ⏳ DB가 안정적으로 완전히 가동될 때까지 대기 (pg_isready 핑 테스트)"
+- name: "[Primary] ⏳ pg_isready 대기"
   ansible.builtin.shell: docker exec aidas-db-primary pg_isready -U {{ db_user | default('aidas_user') }} -h 127.0.0.1 -p 5432
   register: pg_ready
   until: pg_ready.rc == 0
   retries: 15
   delay: 5
 
-- name: "[Primary] ⏳ 스트리밍 복제용 전용 계정(replicator) 생성"
+- name: "[Primary] replicator 계정 생성"
   ansible.builtin.shell: |
     docker exec -i aidas-db-primary psql -U {{ db_user }} -d {{ db_name }} -c "CREATE ROLE {{ replica_user }} WITH REPLICATION PASSWORD '{{ extracted_db_pass }}' LOGIN;"
   failed_when: false
 
-- name: "[Primary] 🔒 외부 복제 접근 허용(pg_hba.conf) 권한 설정 주입"
+- name: "[Primary] 🔒 pg_hba.conf 복제 접근 허용"
   ansible.builtin.shell: |
     docker exec -i aidas-db-primary sh -c "echo 'host replication {{ replica_user }} {{ ubuntu_ip }}/32 md5' >> /var/lib/postgresql/data/pgdata/pg_hba.conf"
     docker exec -i aidas-db-primary psql -U {{ db_user }} -d {{ db_name }} -c "SELECT pg_reload_conf();"

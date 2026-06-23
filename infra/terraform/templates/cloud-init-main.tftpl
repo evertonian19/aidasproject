@@ -58,6 +58,16 @@ runcmd:
   - |
     echo "=== AWS 온디맨드 에이전트 파이프라인 아키텍처 동기화 완료 ==="
 
+  - |
+    echo "=== FastAPI 앱 컨테이너 기동 ==="
+    docker pull ${image}
+    docker run -d \
+      --name aidas-web \
+      --restart always \
+      -p 8000:8000 \
+      -e DB_URL="${db_url}" \
+      -v /var/log/apps:/var/log/apps \
+      ${image}
 write_files:
   - path: /opt/promtail/config/promtail-config.yaml
     owner: root:root
@@ -70,3 +80,5 @@ write_files:
     permissions: '0644'
     encoding: b64
     content: ${promtail_compose_b64}
+
+    

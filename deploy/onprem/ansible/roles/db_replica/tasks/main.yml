@@ -1,41 +1,40 @@
 ---
-- name: "[Replica] 📂 NFS 공유용 커스텀 데이터 디렉토리 생성"
+- name: "[Replica] 🖧 NFS 클라이언트 패키지 설치"
+  ansible.builtin.package:
+    name: nfs-common
+    state: present
+
+- name: "[Replica] 📂 NFS 마운트 포인트 생성"
   ansible.builtin.file:
-    path: "/home/user1/aidas/nfs_db_data"
+    path: /home/user1/aidas/nfs_db_data
     state: directory
     mode: '0777'
-    owner: "999"
-    group: "999"
 
-- name: "[Replica] 🌐 NFS exports 설정에 마스터(록키02) 접근 권한 등록"
-  ansible.builtin.lineinfile:
-    path: /etc/exports
-    line: "/home/user1/aidas/nfs_db_data {{ main_db_ip }}(rw,sync,no_root_squash)"
-  register: nfs_exports
+- name: "[Replica] 🌐 rocky02 NFS 공유폴더 마운트"
+  ansible.posix.mount:
+    src: "{{ main_db_ip }}:/home/user1/aidas/nfs_db_data"
+    path: /home/user1/aidas/nfs_db_data
+    opts: "rw,sync,noatime"
+    fstype: nfs
+    state: mounted
 
-- name: "[Replica] 🔄 NFS 커널 서버 설정 실시간 동기화 리로드"
-  ansible.builtin.shell: "exportfs -ra && systemctl restart nfs-kernel-server || systemctl restart nfs-server"
-  failed_when: false
-  when: nfs_exports.changed
-
-- name: "[Replica] 원격 우분투 구형 DB 컨테이너 및 기존 데이터 디렉토리 완전 청소"
+- name: "[Replica] 구형 컨테이너 및 데이터 정리"
   ansible.builtin.shell: |
-    sudo docker rm -f aidas-db-replica
-    sudo rm -rf /home/user1/aidas/nfs_db_data/replica
+    docker rm -f aidas-db-replica
+    rm -rf /home/user1/aidas/nfs_db_data/replica
   failed_when: false
 
-- name: "[Replica] 💡 우분투 서버용 환경변수 파일 복사 배달"
+- name: "[Replica] 💡 .env 파일 복사"
   ansible.builtin.copy:
     src: "{{ project_root }}/.env.rocky02"
-    dest: "/home/user1/.env"
+    dest: /home/user1/.env
     mode: "0600"
 
-- name: "[Replica] 💡 조장님 지정 SQL 자동 시딩 파일(init.sql) 배달"
+- name: "[Replica] 💡 init.sql 복사"
   ansible.builtin.copy:
     src: "{{ project_root }}/init.sql"
     dest: /home/user1/aidas/init.sql
 
-# 🌟 띄어쓰기 완벽 교정 완료!
 - name: "[Replica] .env 파일 읽기"
   ansible.builtin.slurp:
     src: /home/user1/.env
@@ -45,17 +44,17 @@
   ansible.builtin.set_fact:
     extracted_db_pass: "{{ (env_file.content | b64decode) | regex_search('POSTGRES_PASSWORD=(.+)', '\\1') | first }}"
 
-- name: "[Replica] ⚡ pg_basebackup으로 초기 데이터 동기화"
+- name: "[Replica] ⚡ pg_basebackup 초기 동기화"
   ansible.builtin.shell: |
-    sudo docker run --rm \
+    docker run --rm \
       -e PGPASSWORD={{ extracted_db_pass }} \
       -v /home/user1/aidas/nfs_db_data/replica:/var/lib/postgresql/data \
       postgres:15 \
       pg_basebackup -h {{ main_db_ip }} -D /var/lib/postgresql/data/pgdata -U {{ replica_user }} -v -P -R -X stream
 
-- name: "[Replica] ★ 원격 우분투 ReadOnly Replica DB 가동 (NFS 본체 연동 및 Read-Only 락 주입) ★"
+- name: "[Replica] ★ Replica DB 컨테이너 가동"
   ansible.builtin.shell: |
-    sudo docker run -d --name aidas-db-replica \
+    docker run -d --name aidas-db-replica \
       -p 5433:5432 \
       --env-file /home/user1/.env \
       -e PGDATA=/var/lib/postgresql/data/pgdata \

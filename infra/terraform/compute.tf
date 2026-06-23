@@ -57,9 +57,11 @@ resource "aws_launch_template" "lt" {
     }
   }
   user_data = base64encode(
-    templatefile("${path.module}/templates/cloud-init-promtail.tftpl", {
+    templatefile("${path.module}/templates/cloud-init-main.tftpl", {
       promtail_config_b64  = base64encode(local.promtail_config)
       promtail_compose_b64 = base64encode(local.promtail_compose)
+      db_url               = var.db_url
+      image                = "jaycohb/aidas-web:latest"
     })
   )
 
