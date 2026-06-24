@@ -22,22 +22,41 @@
 ---
 
 ## 🏗️ 3. 시스템 아키텍처 (System Architecture)
-AIDAS는 퍼블릭 클라우드와 온프레미스 환경이 가상 메쉬 VPN(Tailscale)으로 유기적으로 연동된 하이브리드 인프라 아키텍처를 가집니다.
+AIDAS는 퍼블릭 클라우드의 탄력성과 온프레미스의 보안 가치를 모두 충족하는 하이브리드 인프라 아키텍처(Hybrid Architecture)를 채택하고 있습니다. 두 환경은 메쉬 VPN(Tailscale)을 통해 암호화된 프라이빗 사설망으로 유기적으로 연동됩니다.
 
-- AWS 퍼블릭 클라우드 영역 (Frontend & Web Layer) 
-  Route53 / CloudFront -> ALB -> EC2
-  * 가동 서비스: FastAPI 웹 애플리케이션 및 Promtail 에이전트 (ERROR/FATAL 로그 실시간 필터링)
+[사용자 트래픽] ➔ Route 53 ➔ CloudFront ➔ ALB ➔ EC2 (FastAPI / Promtail)
+                                                    │
+                                        (Tailscale 보안 터널)
+                                                    ▼
+                                    VMware On-Premises (Loki / Grafana / Ollama / DB)
+                                                    │
+                                             (Slack Webhook)
+                                                    ▼
+                                            [인프라 운영팀]
 
-- 가상 보안 터널
-  * Tailscale 가상 VPN 터널을 타고 안전하게 온프레미스 환경으로 에러 로그 전송
+1) AWS 퍼블릭 클라우드 영역 (Frontend & Web Layer)
+인프라 라우팅: Amazon Route 53 ➔ Amazon CloudFront ➔ Application Load Balancer (ALB) ➔ Amazon EC2
 
-- VMware 온프레미스 영역 (Data & AI Analytics Layer)
-  * PostgreSQL (메인 데이터베이스)
-  * Loki / Prometheus / Grafana (통합 관제 센터)
-  * Ollama API (로컬 AI 엔진 - 외부 유출 없는 독립형 LLM 분석)
+가동 서비스: FastAPI 웹 애플리케이션, Promtail 에이전트
 
-- 스마트 알림 전송
-  * 가공 완료된 AI 진단 보고서 -> Slack Webhook -> 인프라 운영팀 슬랙 채널 전송
+핵심 역할: 글로벌 엣지(CloudFront) 캐싱을 통해 무거운 정적 리소스를 오프로딩(Offloading)하여 백엔드 부하를 최소화합니다. 애플리케이션에서 발생하는 로그는 Promtail 에이전트를 통해 WARN / ERROR / FATAL 레벨별로 실시간 분류 및 필터링되어 타겟으로 라우팅됩니다.
+
+2) 가상 보안 터널 계층 (Secure Network Layer)
+기술 스택: Tailscale 메쉬 VPN
+
+핵심 역할: 퍼블릭 인터넷 노출이 차단된 AWS 프라이빗 서브넷과 온프레미스 데이터센터 간에 점대점(P2P) 암호화 보안 터널을 형성합니다. 이를 통해 외부 유출에 민감한 서버 로그 데이터를 안전하게 내부망으로 전송합니다.
+
+3) VMware 온프레미스 영역 (Data & AI Analytics Layer)
+통합 옵저버빌리티(Observability) 센터: Grafana / Prometheus / Loki 기반의 실시간 매트릭·로그 통합 관제 및 시각화 환경을 제공합니다.
+
+로컬 AI 분석 엔진: 사설망 내부에 독립형 LLM 엔진인 Ollama API를 구축하여 기업 자산인 로그 데이터의 외부 유출 리스크를 원천 차단하고, 수집된 스택 트레이스(Stack Trace)의 문맥적 결함을 추론합니다.
+
+메인 데이터베이스: PostgreSQL을 활용하여 시스템 메타데이터 및 장애 이력(Incident History)을 영속적으로 관리합니다.
+
+4) 지능형 알림 전송 (Alerting Layer)
+기술 스택: Slack Incoming Webhook
+
+핵심 역할: AI 분석 엔진이 도출한 에러 코드의 정확한 파일명, 발생 라인 수, 조치 권고 사항을 포함한 진단 보고서를 관제 팀 채널로 제로 터치(Zero-Touch) 무인 전송합니다.
 
 
 
