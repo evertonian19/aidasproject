@@ -2,7 +2,31 @@
 # 🔮🛡️ AIDAS (AI-based Incident Detection and Automated Support)
 > AI 기반 장애 로그 자동 탐지 및 알림 운영 시스템
 > 클라우드 컨테이너 인프라의 장애 로그를 온프레미스 로컬 AI(Ollama)로 분석하여 원인 요약과 조치 방안을 Slack으로 실시간 전달하는 지능형 관제 시스템
+---
+## 🛠️ 기술 스택 (Tech Stack)
 
+### Cloud & Infra
+![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=flat-square&logo=amazon-aws&logoColor=white)
+![VMware](https://img.shields.io/badge/VMware-%2360B91F.svg?style=flat-square&logo=vmware&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-%237B42BC.svg?style=flat-square&logo=terraform&logoColor=white)
+![Ansible](https://img.shields.io/badge/Ansible-%23EE0000.svg?style=flat-square&logo=ansible&logoColor=white)
+![Tailscale](https://img.shields.io/badge/Tailscale-%235433FF.svg?style=flat-square&logo=tailscale&logoColor=white)
+
+### Container
+![Docker](https://img.shields.io/badge/Docker-%232496ED.svg?style=flat-square&logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-%23326CE5.svg?style=flat-square&logo=kubernetes&logoColor=white)
+
+### Observability & AI
+![Grafana](https://img.shields.io/badge/Grafana-%23F46800.svg?style=flat-square&logo=grafana&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-%23E6522C.svg?style=flat-square&logo=prometheus&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-%23000000.svg?style=flat-square&logo=ollama&logoColor=white)
+
+### Backend & DB
+![FastAPI](https://img.shields.io/badge/FastAPI-%23009688.svg?style=flat-square&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-%234169E1.svg?style=flat-square&logo=postgresql&logoColor=white)
+
+### CI/CD
+![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-%232088FF.svg?style=flat-square&logo=github-actions&logoColor=white)
 ---
 
 ## 1. 팀 소개 (Team Information)
@@ -144,3 +168,20 @@ aidas/
 - 승인 조건: 최소 1명 이상의 팀원에게 리뷰 및 승인(Approve)을 받아야 머지 가능
 
 ---
+
+## 🛠️ 트러블슈팅 및 성능 최적화 사례
+
+### 1) AMI 백업 스크립트 충돌로 인한 NAT 인스턴스 패킷 드롭 및 DB 백업 실패 해결
+- **문제 상황:** AWS 환경에서 정기 배포 및 관리 편의성을 위해 AMI 이미지 생성 스크립트를 실행한 이후, 프라이빗 서브넷에 위치한 데이터베이스의 원격 백업(`pg_dump` 및 S3 데이터 이관) 작업이 간헐적으로 타임아웃되며 실패하는 현상이 발생함.
+- **원인 분석:** 문제 해결을 위해 퍼블릭 구간의 NAT EC2 인스턴스에 직접 SSH로 호스트 접속하여 네트워크 상태를 점검함. 분석 결과, AMI 생성 과정에서 와일드카드 자동화 스크립트가 오작동하여 NAT 인스턴스의 `iptables` 라우팅 체인 규칙을 변조했고, 이로 인해 프라이빗 서브넷에서 외부(S3 및 온프레미스 망)로 나가는 아웃바운드 패킷이 `DROP` 처리되고 있던 것을 발견함.
+- **해결 조치:** NAT 인스턴스의 `iptables` 포워딩 규칙 및 NAT 테이블(`iptables -t nat -L`)을 정상 상태로 긴급 롤백하여 패킷 드롭 현상을 해결함. 이후 자동화 스크립트 내의 AMI 와일드카드 참조 범위를 명확한 태그(Tag) 기반의 명시적 서술 방식으로 수정하여 인프라 라우팅 규칙이 임의로 변조되는 재발 가능성을 원천 차단함.
+
+### 2) CI/CD 파이프라인 내 ASG Blue-Green 배포 시 EC2 인스턴스 수 동적 관리 최적화
+- **문제 상황:** GitHub Actions와 Docker Swarm/ASG를 연동하여 Blue-Green 방식의 무중단 배포를 수행하는 과정에서, 고정된 인스턴스 수를 유지할 경우 배포 전환 시점에 일시적인 자원 부족으로 컨테이너가 정상 배치되지 않거나 반대로 불필요한 비용이 낭비되는 비효율이 존재함.
+- **원인 분석:** 가용 영역(AZ) 장애 시나리오나 트래픽 급증 등 인프라의 상태 변화에 따라 필요한 최소/최대 인스턴스 수가 유동적임에도 불구하고, CI/CD 스크립트가 정적 수치만을 참조하여 오토스케일링 그룹(ASG)을 제어하는 구조적 한계가 원인이었음.
+- **해결 조치:** 배포 파이프라인 가동 시 현재 운영 중인 ASG의 가동 인스턴스 수(`Desired Capacity`)와 헬스 체크 상태를 AWS CLI를 통해 실시간으로 센싱하도록 스크립트를 고도화함. 새 버전 배포(Green) 시점의 시스템 부하를 고려하여 인스턴스 제한 값을 동적으로 계산 및 반영하도록 설정함으로써, 무중단 배포의 안정성을 확보하고 인프라 자원 최적화를 달성함.
+
+### 3) 온프레미스 Ollama 분석 엔진의 LLM 버전 및 하드웨어 가속 최적화
+- **문제 상황:** VMware 온프레미스 환경에 구축한 Ollama 로컬 AI 엔진이 대량의 장애 로그(Stack Trace)를 분석할 때, 문맥 추론 속도가 지나치게 느려 슬랙 알림이 지연되거나 타임아웃되는 성능 저하 현상이 발생함.
+- **원인 분석:** 컨테이너 환경에서 Ollama의 특정 초기 버전이 호스트의 CPU/GPU 자원을 효율적으로 할당받지 못해 컨텍스트 윈도우가 가득 찼을 때 연산 병목이 발생하는 점을 파악함. 또한, 장애 분석 로그의 포맷에 비해 모델 크기가 무거워 토큰 생성 속도(Tokens per Second)가 저하되는 성능 한계를 확인함.
+- **해결 조치:** Ollama 분석 엔진을 리소스 관리 역량이 개선된 최신 안정화 버전으로 마이그레이션하고, `docker-compose` 단에서 가상화 자원 할당량(CPU Core 및 메모리 제한)을 재조정함. 추가로 인프라 로그 분석(SRE 관점)에 가장 기민하게 반응하면서도 가벼운 경량화 모델 파라미터 세팅으로 튜닝하여, 시스템 리소스 사용량을 최소화하면서도 로그 분석 및 슬랙 알림 전송 속도를 기존 대비 대폭 향상시킴.
