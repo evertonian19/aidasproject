@@ -30,11 +30,24 @@
 
 ## 1. 팀 소개 (Team Information)
 ### 팀명: 쉬지마EC 2
-- **이재혁**(팀장): 요구사항 분석, 프로젝트 총괄 및 일정 관리, 온프레미스 환경 내부 로컬 AI 엔진(Ollama) 구축 및 프롬프트 최적화 전담.
-- **부학성**(부팀장): 요구사항 분석, 하이브리드 인프라 아키텍처 설계 총괄, 개방형 관제 파이프라인(PLG Stack) 및 AWS CloudWatch 통합 연동 전담.
-- **박다정**: 요구사항 분석, Terraform 기반 AWS 클라우드 인프라(VPC, EC2, ALB, Route53, S3, CloudFront) IaC 코드 자동화 및 프로비저닝 담당.
-- **이창원:** 요구사항 분석, Ansible Playbook 기반 인프라 배포 자동화, GitHub Actions CI/CD 구축 및 통합 테스트 담당.
-- **김민규**: 요구사항 분석, FastAPI 기반 관찰 대상 웹 서비스 및 4대 장애 유발 제어판(Incident Injector) 백엔드/프론트엔드 개발 담당.
+- **이재혁** (팀장): 프로젝트 총괄 및 일정 관리, 
+  온프레미스 Ollama(qwen2.5-coder) AI 엔진 구축, 
+  SRE 관점 시스템 프롬프트 엔지니어링, 
+  Loki 폴링 핸들러(handler.py) 작성,
+  4대 장애 시나리오 설계 및 테스트 총괄,
+  Slack 알림 2단계 파이프라인 구성
+
+- **부학성** (부팀장): 하이브리드 인프라 아키텍처 
+  설계 총괄, PLG Stack 구축 및 AWS CloudWatch 연동
+
+- **박다정**: Terraform 기반 AWS 클라우드 인프라 
+  (VPC, EC2, ALB, Route53, S3, CloudFront) IaC 자동화
+
+- **이창원**: Ansible Playbook 배포 자동화, 
+  GitHub Actions CI/CD 구축 및 통합 테스트
+
+- **김민규**: FastAPI 기반 웹 서비스 및 
+  4대 장애 유발 제어판(Incident Injector) 개발
 ---
 
 ## 📌 2. 프로젝트 개요 (Executive Summary)
